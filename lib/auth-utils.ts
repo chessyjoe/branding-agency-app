@@ -1,9 +1,9 @@
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import type { NextRequest } from "next/server"
 
 export async function validateAuthentication(request: NextRequest): Promise<{ user: any; error?: string }> {
   try {
-    const supabase = createServerClient()
+    const supabase = await createClient()
 
     // Get session from request
     const {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { supabaseAdmin } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/server'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const prompt = formData.get('prompt') as string
-    const userId = formData.get('userId') as string
     const brandVoice = JSON.parse(formData.get('brandVoice') as string || '{}')
     const advancedOptions = JSON.parse(formData.get('advancedOptions') as string || '{}')
 
@@ -54,10 +53,12 @@ export async function POST(request: NextRequest) {
       .map(line => line.replace(/^\d+\.\s*/, '').trim())
       .filter(slogan => slogan.length > 0) || []
 
-    // Save to database
-    if (userId && userId !== 'demo-user') {
-      await supabaseAdmin.from('generations').insert({
-        user_id: userId,
+    // Save to database for authenticated user
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('generations').insert({
+        user_id: user.id,
         type: 'slogan',
         prompt: prompt,
         result: { slogans },

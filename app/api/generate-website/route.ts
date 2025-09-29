@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { prompt, model, userId, colors, brandVoice, advancedOptions } = body
+    const { prompt, model, colors, brandVoice, advancedOptions } = body
 
     if (!prompt || !model) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -60,43 +61,7 @@ export async function POST(request: NextRequest) {
       const openaiData = await openaiResponse.json()
       websiteCode = openaiData.choices[0]?.message?.content || ""
     } else {
-      // Together AI fallback
-      if (!process.env.TOGETHER_API_KEY) {
-        return NextResponse.json({ error: "No API key configured for the selected model" }, { status: 500 })
-      }
-
-      const togetherResponse = await fetch("https://api.together.xyz/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.TOGETHER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "meta-llama/Llama-2-70b-chat-hf",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a professional web developer. Create complete, modern, responsive HTML websites with inline CSS and JavaScript.",
-            },
-            {
-              role: "user",
-              content: enhancedPrompt,
-            },
-          ],
-          max_tokens: 4000,
-          temperature: 0.7,
-        }),
-      })
-
-      if (!togetherResponse.ok) {
-        const errorData = await togetherResponse.json()
-        console.error("Together AI error:", errorData)
-        throw new Error(`Together AI API request failed: ${togetherResponse.status}`)
-      }
-
-      const togetherData = await togetherResponse.json()
-      websiteCode = togetherData.choices[0]?.message?.content || ""
+      return NextResponse.json({ error: "No provider available for the selected model" }, { status: 400 })
     }
 
     if (!websiteCode) {
@@ -108,13 +73,18 @@ export async function POST(request: NextRequest) {
 
     // Auto-save the generated website
     try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
       await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/auto-save-generation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: userId || "demo-user",
+          // userId derived from session in auto-save
           type: "website",
           prompt,
           refinedPrompt: enhancedPrompt,

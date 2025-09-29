@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const imageFile = formData.get("image") as File
     const maskFile = formData.get("mask") as File
     const prompt = formData.get("prompt") as string
-    const userId = formData.get("userId") as string
     const model = (formData.get("model") as string) || "dall-e-2"
 
     if (!imageFile || !maskFile || !prompt) {
@@ -39,13 +38,9 @@ export async function POST(request: NextRequest) {
 
     // Validate and sanitize inputs using central utility
     const sanitizedPrompt = validateString(prompt, 500)
-    const sanitizedUserId = validateString(userId, 100)
     const sanitizedModel = validateString(model, 50, /^[\w-]+$/)
 
-    // Verify user ID matches authenticated user
-    if (sanitizedUserId !== user.id) {
-      return NextResponse.json({ error: "User ID mismatch" }, { status: 403 })
-    }
+    // user.id from the authenticated session is the source of truth
 
     const openaiApiKey = process.env.OPENAI_API_KEY
 
@@ -89,7 +84,7 @@ export async function POST(request: NextRequest) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: sanitizedUserId,
+            userId: user.id,
             type: "ai-edit",
             prompt: `AI Inpainting: ${sanitizedPrompt}`,
             refinedPrompt: sanitizedPrompt,

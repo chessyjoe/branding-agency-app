@@ -38,19 +38,22 @@ export default function BrandKitPage() {
   const [colorPaletteOpen, setColorPaletteOpen] = useState(false)
   const [brandVoiceOpen, setBrandVoiceOpen] = useState(false)
 
-  const handleFileUpload = (file: File, type: "logo" | "assets") => {
-    if (type === "assets") {
+  const handleFileUpload = (file: File, type: "reference" | "logo" | "content") => {
+    if (type === "content") {
       setUploadedFiles((prev) => ({
         ...prev,
         assets: [...(prev.assets || []), file],
       }))
-    } else {
-      setUploadedFiles((prev) => ({ ...prev, [type]: file }))
+      return
     }
+    if (type === "logo") {
+      setUploadedFiles((prev) => ({ ...prev, logo: file }))
+    }
+    // "reference" not used in this page
   }
 
-  const handleFileRemove = (type: "logo" | "assets", index?: number) => {
-    if (type === "assets" && typeof index === "number") {
+  const handleFileRemove = (type: "reference" | "logo" | "content", index?: number) => {
+    if (type === "content" && typeof index === "number") {
       setUploadedFiles((prev) => ({
         ...prev,
         assets: prev.assets?.filter((_, i) => i !== index),
@@ -58,7 +61,7 @@ export default function BrandKitPage() {
     } else {
       setUploadedFiles((prev) => {
         const updated = { ...prev }
-        delete updated[type]
+        if (type === "logo") delete updated.logo
         return updated
       })
     }
@@ -193,7 +196,11 @@ export default function BrandKitPage() {
             <Collapsible open={brandVoiceOpen} onOpenChange={setBrandVoiceOpen}>
               <div className="relative">
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100">
+                  <Button
+                    variant="ghost"
+                    className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+                    aria-label={brandVoiceOpen ? "Collapse brand voice" : "Expand brand voice"}
+                  >
                     <ChevronDown
                       className={`h-4 w-4 transition-transform duration-200 ${brandVoiceOpen ? "rotate-180" : ""}`}
                     />

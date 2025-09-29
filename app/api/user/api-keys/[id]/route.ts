@@ -1,10 +1,15 @@
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const { isActive } = await req.json()
-    const supabase = createServerClient()
-    const userId = 'demo-user' // In real app, get from auth
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
     const { data, error } = await supabase
       .from('api_keys')
@@ -13,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         updated_at: new Date().toISOString()
       })
       .eq('id', params.id)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .select()
       .single()
 
@@ -36,14 +41,19 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = createServerClient()
-    const userId = 'demo-user' // In real app, get from auth
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
     const { error } = await supabase
       .from('api_keys')
       .delete()
       .eq('id', params.id)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
 
     if (error) throw error
 

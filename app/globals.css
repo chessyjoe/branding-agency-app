@@ -116,6 +116,7 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
 .line-clamp-2 {
@@ -123,6 +124,7 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .line-clamp-3 {
@@ -130,6 +132,7 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 /* Custom theme variables */
@@ -256,5 +259,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  html, :host {
+    /* Cross-browser text size adjust */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }

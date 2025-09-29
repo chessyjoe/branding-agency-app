@@ -1,6 +1,6 @@
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
@@ -12,14 +12,20 @@ export async function POST(req: Request) {
     const duration = parseInt(formData.get('duration') as string)
     const videoInfo = JSON.parse(formData.get('videoInfo') as string || '{}')
     const colors = JSON.parse(formData.get('colors') as string || '[]')
-    const userId = formData.get('userId') as string
+    // Derive user from session
     
     // Handle uploaded files
     const referenceFile = formData.get('reference') as File | null
     const logoFile = formData.get('logo') as File | null
     const assetsFile = formData.get('assets') as File | null
 
-    const supabase = createServerClient()
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
     // Build comprehensive prompt for video generation
     let enhancedPrompt = `Create a ${videoType} video in ${format} aspect ratio, ${duration} seconds long. ${prompt}`
@@ -79,7 +85,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from('generations')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         type: 'video',
         prompt: enhancedPrompt,
         refined_prompt: refinedPrompt,

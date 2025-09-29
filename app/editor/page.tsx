@@ -210,6 +210,9 @@ export default function ImageEditorPage() {
       try {
         const { canvas, name } = await importImageAsLayer(file, layerName)
         const newLayer = createLayer("image", name)
+        if (!newLayer) {
+          throw new Error("Failed to create new image layer")
+        }
 
         newLayer.canvas.width = canvas.width
         newLayer.canvas.height = canvas.height
@@ -248,6 +251,9 @@ export default function ImageEditorPage() {
   const handleCreateLayerFromAI = useCallback(
     async (type: Layer["type"], name: string, imageUrl: string) => {
       const newLayer = createLayer(type, name)
+      if (!newLayer) {
+        return
+      }
 
       const img = new Image()
       img.crossOrigin = "anonymous"
@@ -300,7 +306,7 @@ export default function ImageEditorPage() {
               <div className="flex items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => setShowOnboarding(true)}>
+                    <Button variant="ghost" size="sm" onClick={() => setShowOnboarding(true)} aria-label="Show help">
                       <HelpCircle className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
@@ -309,7 +315,12 @@ export default function ImageEditorPage() {
 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(!isFullscreen)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsFullscreen(!isFullscreen)}
+                      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                    >
                       {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                     </Button>
                   </TooltipTrigger>
@@ -366,6 +377,9 @@ export default function ImageEditorPage() {
                     accept="image/*"
                     onChange={handleImageUpload}
                     className="hidden"
+                    id="editor-file-input"
+                    name="editor-file-input"
+                    aria-label="Import image file"
                   />
                 </div>
 

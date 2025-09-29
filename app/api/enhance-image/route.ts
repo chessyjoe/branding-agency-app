@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const imageFile = formData.get("image") as File
-    const userId = formData.get("userId") as string
     const enhancementType = (formData.get("type") as string) || "quality" // "quality", "upscale", "colorize"
 
     if (!imageFile) {
@@ -76,11 +76,16 @@ export async function POST(request: NextRequest) {
 
       // Auto-save the enhanced image
       try {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
         await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: userId || "demo-user",
+            // userId is derived inside auto-save using session
             type: "ai-edit",
             prompt: `Image Enhancement: ${enhancementType}`,
             refinedPrompt: enhancementPrompt,

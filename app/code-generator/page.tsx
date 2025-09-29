@@ -73,11 +73,9 @@ export default function CodeGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          codeType,
           language,
           framework,
           requirements,
-          userId: "demo-user",
         }),
       })
 

@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const prompt = formData.get("prompt") as string
     const model = formData.get("model") as string
-    const userId = formData.get("userId") as string
     const colors = JSON.parse((formData.get("colors") as string) || "[]")
     const brandVoice = JSON.parse((formData.get("brandVoice") as string) || "{}")
     const advancedOptions = JSON.parse((formData.get("advancedOptions") as string) || "{}")
@@ -17,10 +17,9 @@ export async function POST(request: NextRequest) {
 
     // Get API keys from environment
     const openaiApiKey = process.env.OPENAI_API_KEY
-    const togetherApiKey = process.env.TOGETHER_API_KEY
     const blackforestApiKey = process.env.BLACKFOREST_API_KEY
 
-    let imageUrl: string
+    let imageUrl: string = ""
     let refinedPrompt = prompt
 
     try {
@@ -140,42 +139,22 @@ export async function POST(request: NextRequest) {
         if (!imageUrl) {
           throw new Error("Generation timeout")
         }
-      } else if (togetherApiKey) {
-        // Together AI fallback
-        const response = await fetch("https://api.together.xyz/v1/images/generations", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${togetherApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "stabilityai/stable-diffusion-xl-base-1.0",
-            prompt: refinedPrompt,
-            width: 1792,
-            height: 1024,
-            steps: advancedOptions.quality || 8,
-            n: 1,
-          }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error?.message || "Together AI API error")
-        }
-
-        const data = await response.json()
-        imageUrl = data.data[0].url
       } else {
         throw new Error("No valid API key found for the selected model")
       }
 
       // Auto-save the generated business card
       try {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
         await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: userId || "demo-user",
+            // userId derived from session in auto-save
             type: "business-card",
             prompt,
             refinedPrompt,

@@ -1,4 +1,4 @@
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import { encrypt, decrypt, validateAndSanitizeInput } from "@/lib/encryption"
 import { validateAuthentication, rateLimiter } from "@/lib/auth-utils"
 import { type NextRequest, NextResponse } from "next/server"
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
     }
 
-    const supabase = createServerClient()
+    const supabase = await createClient()
 
     const { data, error } = await supabase
       .from("api_keys")
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch API keys" }, { status: 500 })
     }
 
-    const apiKeys = data.map((key) => {
+    const apiKeys = data.map((key: any) => {
       try {
         const decryptedKey = decrypt(key.encrypted_key)
         const maskedKey = "*".repeat(Math.max(0, decryptedKey.length - 4)) + decryptedKey.slice(-4)
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid API key format for the selected service" }, { status: 400 })
     }
 
-    const supabase = createServerClient()
+    const supabase = await createClient()
 
     const { count } = await supabase
       .from("api_keys")

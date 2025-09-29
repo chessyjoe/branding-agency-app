@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 interface LogoGenerationRequest {
   prompt: string
@@ -12,7 +13,6 @@ interface LogoGenerationRequest {
 
 function validateApiKeys(model: string) {
   const openaiApiKey = process.env.OPENAI_API_KEY
-  const togetherApiKey = process.env.TOGETHER_API_KEY
   const blackforestApiKey = process.env.BLACKFOREST_API_KEY
 
   if (model === "dall-e-3" && !openaiApiKey) {
@@ -23,11 +23,7 @@ function validateApiKeys(model: string) {
     throw new Error("Missing API key for FLUX models. Please configure BLACKFOREST_API_KEY.")
   }
 
-  if (!model.startsWith("flux-") && model !== "dall-e-3" && !togetherApiKey) {
-    throw new Error("Missing API key for Stable Diffusion models. Please configure TOGETHER_API_KEY.")
-  }
-
-  return { openaiApiKey, togetherApiKey, blackforestApiKey }
+  return { openaiApiKey, blackforestApiKey }
 }
 
 interface NormalizedResponse {
@@ -63,7 +59,14 @@ export async function POST(request: NextRequest) {
 
     const prompt = formData.get("prompt") as string
     const model = formData.get("model") as string
-    const userId = formData.get("userId") as string
+    // Derive user from session
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     // Validate required fields
     if (!prompt || !model) {
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let imageUrl: string
+    let imageUrl: string = ""
     let refinedPrompt = prompt
     let autoSaved = false
 
@@ -156,7 +159,6 @@ export async function POST(request: NextRequest) {
       const providers = [
         { name: "primary", condition: model === "dall-e-3" && apiKeys.openaiApiKey },
         { name: "blackforest", condition: model.startsWith("flux-") && apiKeys.blackforestApiKey },
-        { name: "together", condition: !model.startsWith("flux-") && model !== "dall-e-3" && apiKeys.togetherApiKey },
       ]
 
       let lastError: Error | null = null
@@ -213,7 +215,7 @@ export async function POST(request: NextRequest) {
               method: "POST",
               headers: {
                 accept: "application/json",
-                "x-key": apiKeys.blackforestApiKey,
+                "x-key": String(apiKeys.blackforestApiKey || ""),
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
@@ -249,7 +251,7 @@ export async function POST(request: NextRequest) {
                   method: "GET",
                   headers: {
                     accept: "application/json",
-                    "x-key": apiKeys.blackforestApiKey,
+                    "x-key": String(apiKeys.blackforestApiKey || ""),
                   },
                 })
 
@@ -282,43 +284,6 @@ export async function POST(request: NextRequest) {
               throw new Error("Generation timeout - no result received")
             }
             break
-          } else if (provider.name === "together") {
-            console.log("[v0] Attempting Together AI generation...")
-            usedProvider = `Together AI ${model}`
-
-            const togetherModels: Record<string, string> = {
-              "stable-diffusion": "stabilityai/stable-diffusion-2-1",
-              "stable-diffusion-xl": "stabilityai/stable-diffusion-xl-base-1.0",
-              "playground-v2": "playgroundai/playground-v2-1024px-aesthetic",
-            }
-
-            const togetherModel = togetherModels[model] || "stabilityai/stable-diffusion-xl-base-1.0"
-
-            const response = await fetch("https://api.together.xyz/v1/images/generations", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${apiKeys.togetherApiKey}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: togetherModel,
-                prompt: refinedPrompt,
-                width: 1024,
-                height: 1024,
-                steps: advancedOptions.quality || 8,
-                n: 1,
-                seed: advancedOptions.seed,
-              }),
-            })
-
-            if (!response.ok) {
-              const errorData = await response.json()
-              throw new Error(errorData.error?.message || "Together AI API error")
-            }
-
-            const data = await response.json()
-            imageUrl = data.data[0].url
-            break
           }
         } catch (providerError) {
           console.error(`[v0] Provider ${provider.name} failed:`, providerError)
@@ -332,13 +297,11 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const validUserId = userId && userId !== "demo-user" ? userId : crypto.randomUUID()
-
         const autoSaveResponse = await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: validUserId,
+            userId: user.id,
             type: "logo",
             prompt,
             refinedPrompt,

@@ -6,22 +6,22 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
+    // Derive user from session instead of trusting query param
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const type = searchParams.get("type")
     const isTemplate = searchParams.get("isTemplate")
     const isFavorite = searchParams.get("isFavorite")
     const limit = Number.parseInt(searchParams.get("limit") || "20")
     const offset = Number.parseInt(searchParams.get("offset") || "0")
 
+    const userId = user.id
     console.log("[v0] API params:", { userId, type, isTemplate, isFavorite, limit, offset })
-
-    if (!userId) {
-      console.log("[v0] Missing userId")
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
-
-    console.log("[v0] Creating Supabase client")
-    const supabase = await createClient()
 
     console.log("[v0] Building query for generations table")
     let query = supabase
@@ -70,13 +70,13 @@ export async function GET(request: NextRequest) {
 
     if (isTemplate === "true") {
       // Only return items that exist in templates table
-      const templateIds = transformedImages.map((img) => img.id)
+      const templateIds = transformedImages.map((img: any) => img.id)
       if (templateIds.length > 0) {
         const { data: templates } = await supabase.from("templates").select("id").in("id", templateIds)
 
-        const templateIdSet = new Set(templates?.map((t) => t.id) || [])
-        filteredImages = transformedImages.filter((img) => templateIdSet.has(img.id))
-        filteredImages.forEach((img) => {
+        const templateIdSet = new Set(templates?.map((t: any) => t.id) || [])
+        filteredImages = transformedImages.filter((img: any) => templateIdSet.has(img.id))
+        filteredImages.forEach((img: any) => {
           img.is_template = true
         })
       } else {
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     if (isFavorite === "true") {
       // Only return items that exist in user_favorites table
-      const generationIds = filteredImages.map((img) => img.id)
+      const generationIds = filteredImages.map((img: any) => img.id)
       if (generationIds.length > 0) {
         const { data: favorites } = await supabase
           .from("user_favorites")
@@ -94,9 +94,9 @@ export async function GET(request: NextRequest) {
           .eq("user_id", userId)
           .in("generation_id", generationIds)
 
-        const favoriteIdSet = new Set(favorites?.map((f) => f.generation_id) || [])
-        filteredImages = filteredImages.filter((img) => favoriteIdSet.has(img.id))
-        filteredImages.forEach((img) => {
+        const favoriteIdSet = new Set(favorites?.map((f: any) => f.generation_id) || [])
+        filteredImages = filteredImages.filter((img: any) => favoriteIdSet.has(img.id))
+        filteredImages.forEach((img: any) => {
           img.is_favorite = true
         })
       } else {

@@ -15,20 +15,25 @@ export function cn(...inputs: ClassValue[]) {
  * @param {string[]} allowedDomains - List of allowed domains (should be normalized, e.g., no trailing dot).
  * @returns {boolean} True if allowed, false otherwise.
  */
-import punycode from "punycode/";
+function toASCIIHost(input: string): string {
+  try {
+    // Using WHATWG URL implementation to perform IDNA/punycode conversion
+    return new URL(`http://${input}`).hostname;
+  } catch {
+    return "";
+  }
+}
 
 export function isAllowedDomain(hostname: string, allowedDomains: string[]): boolean {
   if (!hostname) return false;
   // Normalize: lowercase, strip trailing dot, punycode
   let normalized = hostname.trim().replace(/\.$/, "").toLowerCase();
-  try {
-    normalized = punycode.toASCII(normalized);
-  } catch {
-    // If punycode conversion fails, reject
-    return false;
-  }
+  const asciiHost = toASCIIHost(normalized);
+  if (!asciiHost) return false;
+  normalized = asciiHost;
   for (const domain of allowedDomains) {
-    const normDomain = punycode.toASCII(domain.toLowerCase().replace(/\.$/, ""));
+    const normDomain = toASCIIHost(domain.toLowerCase().replace(/\.$/, ""));
+    if (!normDomain) continue;
     if (normalized === normDomain) return true;
     // Direct subdomain only (e.g., foo.example.com, not foo.bar.example.com unless you want to allow that)
     if (normalized.endsWith("." + normDomain)) {

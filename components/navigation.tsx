@@ -243,7 +243,7 @@ export function Navigation() {
           <div className="md:hidden">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" aria-label="Open menu">
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>

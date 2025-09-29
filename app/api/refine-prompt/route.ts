@@ -178,7 +178,7 @@ IMPORTANT: Return your response as a JSON object with the following expanded str
       if (eventDetails.location) userMessage += `- Location: ${eventDetails.location}\n`
       if (eventDetails.price) userMessage += `- Price: ${eventDetails.price}\n`
       if (eventDetails.highlights && eventDetails.highlights.length > 0) {
-        userMessage += `- Key Highlights: ${eventDetails.highlights.filter((h) => h.trim()).join(", ")}\n`
+        userMessage += `- Key Highlights: ${eventDetails.highlights.filter((h: string) => h.trim()).join(", ")}\n`
       }
       if (eventDetails.ctaText) userMessage += `- Call to Action: ${eventDetails.ctaText}\n`
       if (eventDetails.phone || eventDetails.email || eventDetails.website) {
@@ -201,7 +201,7 @@ IMPORTANT: Return your response as a JSON object with the following expanded str
     if (brandVoice) {
       userMessage += `BRAND PERSONALITY:\n`
       if (brandVoice.tone && Array.isArray(brandVoice.tone) && brandVoice.tone.length > 0) {
-        userMessage += `- Tone: ${brandVoice.tone.filter((t) => t && typeof t === "string").join(", ")}\n`
+        userMessage += `- Tone: ${brandVoice.tone.filter((t: string) => t && typeof t === "string").join(", ")}\n`
       }
       if (brandVoice.targetAudience && typeof brandVoice.targetAudience === "string") {
         userMessage += `- Target Audience: ${brandVoice.targetAudience}\n`
@@ -215,7 +215,9 @@ IMPORTANT: Return your response as a JSON object with the following expanded str
     // Add style preferences if provided
     if (advancedOptions) {
       if (advancedOptions.style && Array.isArray(advancedOptions.style) && advancedOptions.style.length > 0) {
-        userMessage += `STYLE PREFERENCES: ${advancedOptions.style.filter((s) => s && typeof s === "string").join(", ")}\n`
+        userMessage += `STYLE PREFERENCES: ${advancedOptions.style
+          .filter((s: string) => s && typeof s === "string")
+          .join(", ")}\n`
       }
       if (advancedOptions.aspectRatio && typeof advancedOptions.aspectRatio === "string") {
         userMessage += `ASPECT RATIO: ${advancedOptions.aspectRatio}\n`
@@ -244,7 +246,6 @@ Make it specific and detailed for optimal FLUX model results.`
         model: openai("gpt-4o"),
         system: systemPrompt,
         prompt: userMessage,
-        maxTokens: 2000,
         temperature: 0.7,
       })
 
@@ -292,21 +293,21 @@ Make it specific and detailed for optimal FLUX model results.`
         console.log("[v0] JSON parsing failed, using fallback structure")
         console.error("[v0] Parse error:", parseError)
 
-        const enhancedPrompt = `${prompt}. Event: ${eventDetails?.title || "Event"} - ${eventDetails?.tagline || ""}. Date: ${eventDetails?.date || "TBD"}. Location: ${eventDetails?.location || "Venue TBD"}. Price: ${eventDetails?.price || "TBD"}. Professional ${advancedOptions?.style && Array.isArray(advancedOptions.style) ? advancedOptions.style.filter((s) => s && typeof s === "string").join(" ") : "modern"} design with ${colors && Array.isArray(colors) ? colors.filter((c) => c && typeof c === "string").join(", ") : "vibrant colors"}.`
+        const enhancedPrompt = `${prompt}. Event: ${eventDetails?.title || "Event"} - ${eventDetails?.tagline || ""}. Date: ${eventDetails?.date || "TBD"}. Location: ${eventDetails?.location || "Venue TBD"}. Price: ${eventDetails?.price || "TBD"}. Professional ${advancedOptions?.style && Array.isArray(advancedOptions.style) ? advancedOptions.style.filter((s: string) => s && typeof s === "string").join(" ") : "modern"} design with ${colors && Array.isArray(colors) ? colors.filter((c: string) => c && typeof c === "string").join(", ") : "vibrant colors"}.`
 
         const fallbackData = {
           prompt: enhancedPrompt,
           style:
             advancedOptions?.style && Array.isArray(advancedOptions.style)
-              ? advancedOptions.style.filter((s) => s && typeof s === "string").join(" ")
+              ? advancedOptions.style.filter((s: string) => s && typeof s === "string").join(" ")
               : "modern",
           colors:
             colors && Array.isArray(colors)
-              ? colors.filter((c) => c && typeof c === "string")
+              ? colors.filter((c: string) => c && typeof c === "string")
               : ["#1a1a1a", "#ffffff", "#0066cc"],
           mood:
             brandVoice?.tone && Array.isArray(brandVoice.tone)
-              ? brandVoice.tone.filter((t) => t && typeof t === "string").join(" ")
+              ? brandVoice.tone.filter((t: string) => t && typeof t === "string").join(" ")
               : "professional",
           composition: "balanced hierarchical layout",
           eventElements: {

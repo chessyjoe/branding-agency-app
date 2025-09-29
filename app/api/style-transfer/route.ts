@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const contentImageFile = formData.get("contentImage") as File
     const styleImageFile = formData.get("styleImage") as File
-    const userId = formData.get("userId") as string
     const strength = (formData.get("strength") as string) || "0.7"
 
     if (!contentImageFile || !styleImageFile) {
@@ -61,11 +61,16 @@ export async function POST(request: NextRequest) {
 
       // Auto-save the styled image
       try {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
         await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: userId || "demo-user",
+            // userId derived from session in auto-save
             type: "ai-edit",
             prompt: "Style Transfer",
             refinedPrompt: "Artistic style transfer applied",

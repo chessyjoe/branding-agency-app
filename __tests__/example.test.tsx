@@ -2,7 +2,7 @@
 
 import { render, screen } from "@testing-library/react"
 import { Button } from "@/components/ui/button"
-import jest from "jest" // Importing jest to fix the undeclared variable error
+// Use global `jest` provided by the test environment
 
 describe("Button Component", () => {
   it("renders a button with text", () => {

@@ -1,11 +1,13 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "branding-agency-app",
+  "version": "1.0.0",
+  "description": "A modern branding agency application built with Next.js, featuring AI-powered tools and comprehensive branding services",
   "private": true,
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
+    "test": "jest",
     "start": "next start"
   },
   "dependencies": {
@@ -74,13 +76,15 @@
     "uuid": "latest",
     "vaul": "^0.9.9",
     "ws": "latest",
-    "zod": "3.25.67"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "jest-environment-jsdom": "^30.1.2",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",

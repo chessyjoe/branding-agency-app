@@ -83,10 +83,9 @@ export default function VideoDeveloper() {
       formData.append("prompt", prompt)
       formData.append("videoType", videoType)
       formData.append("format", format)
-      formData.append("duration", (duration || customDuration).toString())
+      formData.append("duration", String(duration))
       formData.append("videoInfo", JSON.stringify(videoInfo))
       formData.append("colors", JSON.stringify(colors))
-      formData.append("userId", "demo-user")
 
       // Add uploaded files
       Object.entries(uploadedFiles).forEach(([type, file]) => {
@@ -330,7 +329,11 @@ export default function VideoDeveloper() {
               <Collapsible open={colorPaletteOpen} onOpenChange={setColorPaletteOpen}>
                 <div className="relative">
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100">
+                    <Button
+                      variant="ghost"
+                      className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+                      aria-label={colorPaletteOpen ? "Collapse color palette" : "Expand color palette"}
+                    >
                       <ChevronDown
                         className={`h-4 w-4 transition-transform duration-200 ${colorPaletteOpen ? "rotate-180" : ""}`}
                       />

@@ -61,6 +61,14 @@ export default function SloganPage() {
     enhancePrompt: true,
   })
 
+  const handleAdvancedOptionsChange = (opts: any) => {
+    setAdvancedOptions({
+      creativity: typeof opts?.creativity === "number" ? opts.creativity : 8,
+      iterations: typeof opts?.iterations === "number" ? opts.iterations : 1,
+      enhancePrompt: opts?.enhancePrompt !== false,
+    })
+  }
+
   const [brandVoiceOpen, setBrandVoiceOpen] = useState(false)
   const [generationOptionsOpen, setGenerationOptionsOpen] = useState(false)
 
@@ -97,7 +105,6 @@ export default function SloganPage() {
     try {
       const formData = new FormData()
       formData.append("prompt", prompt)
-      formData.append("userId", "demo-user")
       formData.append("brandVoice", JSON.stringify(brandVoice))
       formData.append("advancedOptions", JSON.stringify(advancedOptions))
       formData.append("eventDetails", JSON.stringify(eventDetails))
@@ -362,7 +369,11 @@ export default function SloganPage() {
               <Collapsible open={brandVoiceOpen} onOpenChange={setBrandVoiceOpen}>
                 <div className="relative">
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100">
+                    <Button
+                      variant="ghost"
+                      className="absolute top-4 right-4 z-10 h-8 w-8 p-0 hover:bg-gray-100"
+                      aria-label={brandVoiceOpen ? "Collapse brand voice" : "Expand brand voice"}
+                    >
                       <ChevronDown
                         className={`h-4 w-4 transition-transform duration-200 ${brandVoiceOpen ? "rotate-180" : ""}`}
                       />
@@ -388,7 +399,7 @@ export default function SloganPage() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent>
-                      <AdvancedOptions options={advancedOptions} onOptionsChange={setAdvancedOptions} type="slogan" />
+                      <AdvancedOptions options={advancedOptions as any} onOptionsChange={handleAdvancedOptionsChange} type="slogan" />
                     </CardContent>
                   </CollapsibleContent>
                 </Card>

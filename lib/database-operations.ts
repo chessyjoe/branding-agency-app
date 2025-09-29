@@ -1,14 +1,14 @@
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import { TABLES, type DatabaseGeneration, type DatabaseUser } from "./database-types"
 
 export class DatabaseOperations {
-  private static getClient() {
-    return createServerClient()
+  private static async getClient() {
+    return await createClient()
   }
 
   // User operations
   static async ensureUserExists(userId: string, email?: string): Promise<DatabaseUser> {
-    const supabase = this.getClient()
+    const supabase = await this.getClient()
 
     const { data: existingUser } = await supabase.from(TABLES.USERS).select("*").eq("id", userId).single()
 
@@ -30,7 +30,7 @@ export class DatabaseOperations {
   static async saveGeneration(
     generation: Omit<DatabaseGeneration, "id" | "created_at" | "updated_at">,
   ): Promise<DatabaseGeneration> {
-    const supabase = this.getClient()
+    const supabase = await this.getClient()
 
     // Ensure user exists first
     await this.ensureUserExists(generation.user_id)

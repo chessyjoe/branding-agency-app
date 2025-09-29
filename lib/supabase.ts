@@ -37,7 +37,7 @@ export const supabaseAdmin =
     : createFallbackClient()
 
 // Server-side client function
-export function createServerClient() {
+export function createAdminClient() {
   if (!isSupabaseConfigured || !supabaseServiceKey) {
     return createFallbackClient()
   }

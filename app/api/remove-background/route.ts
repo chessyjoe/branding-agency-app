@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const imageFile = formData.get("image") as File
-    const userId = formData.get("userId") as string
     const method = (formData.get("method") as string) || "ai" // "ai" or "api"
 
     if (!imageFile) {
@@ -98,11 +98,16 @@ export async function POST(request: NextRequest) {
 
     // Auto-save the processed image
     try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
       await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: userId || "demo-user",
+          // userId derived from session in auto-save
           type: "ai-edit",
           prompt: "Background Removal",
           refinedPrompt: "Background removed using AI",

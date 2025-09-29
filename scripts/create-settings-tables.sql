@@ -13,7 +13,7 @@ CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
 CREATE TABLE IF NOT EXISTS api_keys (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL,
-  service TEXT NOT NULL CHECK (service IN ('openai', 'vercel-v0', 'together', 'supabase', 'runway', 'elevenlabs', 'pexels', 'unsplash')),
+  service TEXT NOT NULL CHECK (service IN ('openai', 'vercel-v0', 'supabase', 'runway', 'elevenlabs', 'pexels', 'unsplash')),
   name TEXT NOT NULL,
   encrypted_key TEXT NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
@@ -101,10 +101,10 @@ CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys FOR EACH ROW
 CREATE TRIGGER update_user_quotas_updated_at BEFORE UPDATE ON user_quotas FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_system_config_updated_at BEFORE UPDATE ON system_config FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Update the service constraint to include 'together' instead of 'replicate'
+-- Update service constraint (Together removed)
 ALTER TABLE api_keys 
 DROP CONSTRAINT IF EXISTS api_keys_service_check;
 
 ALTER TABLE api_keys 
 ADD CONSTRAINT api_keys_service_check 
-CHECK (service IN ('openai', 'vercel-v0', 'together', 'supabase', 'runway', 'elevenlabs', 'pexels', 'unsplash'));
+CHECK (service IN ('openai', 'vercel-v0', 'supabase', 'runway', 'elevenlabs', 'pexels', 'unsplash'));

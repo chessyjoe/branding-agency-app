@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 import { DatabaseOperations } from "@/lib/database-operations"
 
 async function ensureUserExists(supabase: any, userId: string) {
@@ -76,7 +77,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      userId,
       type,
       title,
       prompt,
@@ -92,11 +92,16 @@ export async function POST(request: NextRequest) {
       tags = [],
     } = body
 
-    console.log("[v0] Request data:", { userId, type, isTemplate, imageUrl: !!imageUrl })
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-    if (!userId || !type || !prompt || !imageUrl) {
+    console.log("[v0] Request data:", { userId: user.id, type, isTemplate, imageUrl: !!imageUrl })
+
+    if (!type || !prompt || !imageUrl) {
       console.error("[v0] Missing required fields:", {
-        userId: !!userId,
         type: !!type,
         prompt: !!prompt,
         imageUrl: !!imageUrl,
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Using DatabaseOperations for user handling")
 
       const generationData = {
-        user_id: userId,
+        user_id: user.id,
         type,
         prompt,
         refined_prompt: refinedPrompt,

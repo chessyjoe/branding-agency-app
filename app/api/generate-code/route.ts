@@ -1,6 +1,6 @@
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
   try {
@@ -9,11 +9,16 @@ export async function POST(req: Request) {
       codeType, 
       language, 
       framework, 
-      requirements, 
-      userId 
+      requirements
     } = await req.json()
 
-    const supabase = createServerClient()
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
     // Build comprehensive prompt for code generation
     let enhancedPrompt = `Generate ${codeType} code in ${language}`
@@ -95,7 +100,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from('generations')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         type: 'code',
         prompt: enhancedPrompt,
         refined_prompt: refinedPrompt,

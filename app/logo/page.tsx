@@ -63,7 +63,7 @@ const models = [
 
 export default function LogoPage() {
   const router = useRouter()
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [prompt, setPrompt] = useState("")
   const [selectedModel, setSelectedModel] = useState("flux-schnell")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -124,19 +124,33 @@ export default function LogoPage() {
     highResolution: true,
     customDimensions: undefined,
   })
+  const handleAdvancedOptionsChange = (opts: any) => {
+    setAdvancedOptions({
+      aspectRatio: typeof opts?.aspectRatio === "string" ? opts.aspectRatio : "1:1",
+      style: Array.isArray(opts?.style) ? opts.style : [],
+      quality: typeof opts?.quality === "number" ? opts.quality : 8,
+      creativity: typeof opts?.creativity === "number" ? opts.creativity : 6,
+      iterations: typeof opts?.iterations === "number" ? opts.iterations : 1,
+      seed: typeof opts?.seed === "number" ? opts.seed : undefined,
+      negativePrompt: typeof opts?.negativePrompt === "string" ? opts.negativePrompt : "",
+      enhancePrompt: opts?.enhancePrompt !== false,
+      highResolution: opts?.highResolution !== false,
+      customDimensions: opts?.customDimensions,
+    })
+  }
   const [uploadedFiles, setUploadedFiles] = useState<{
     reference?: File
     logo?: File
-    brandGuide?: File
+    content?: File
   }>({})
   const [demoUserId] = useState(() => uuidv4())
   const userId = user?.id || demoUserId
 
-  const handleFileUpload = (file: File, type: "reference" | "logo" | "brand-guide") => {
+  const handleFileUpload = (file: File, type: "reference" | "logo" | "content") => {
     setUploadedFiles((prev) => ({ ...prev, [type]: file }))
   }
 
-  const handleFileRemove = (type: "reference" | "logo" | "brand-guide") => {
+  const handleFileRemove = (type: "reference" | "logo" | "content") => {
     setUploadedFiles((prev) => {
       const updated = { ...prev }
       delete updated[type]
@@ -682,7 +696,7 @@ export default function LogoPage() {
                         maxSize={20}
                         label="Brand Guidelines"
                         description="Upload brand style guide or guidelines document"
-                        type="brand-guide"
+                        type="content"
                       />
                     </CardContent>
                   </CollapsibleContent>
@@ -858,7 +872,7 @@ export default function LogoPage() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent>
-                      <AdvancedOptions options={advancedOptions} onOptionsChange={setAdvancedOptions} type="logo" />
+                      <AdvancedOptions options={advancedOptions as any} onOptionsChange={handleAdvancedOptionsChange} type="logo" />
                     </CardContent>
                   </CollapsibleContent>
                 </Card>

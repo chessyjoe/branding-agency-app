@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,23 +10,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
-    const { data, error } = await supabase
-      .from("generated_images")
-      .update({ is_favorite: isFavorite })
-      .eq("id", imageId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error("Error toggling favorite status:", error)
-      return NextResponse.json({ error: "Failed to update favorite status" }, { status: 500 })
+    // Maintain favorites via user_favorites join table
+    if (isFavorite) {
+      const { error } = await supabase
+        .from("user_favorites")
+        .insert({ user_id: user.id, generation_id: imageId })
+        .select()
+        .single()
+      if (error && error.code !== "23505") {
+        console.error("Error adding favorite:", error)
+        return NextResponse.json({ error: "Failed to add to favorites" }, { status: 500 })
+      }
+    } else {
+      const { error } = await supabase
+        .from("user_favorites")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("generation_id", imageId)
+      if (error) {
+        console.error("Error removing favorite:", error)
+        return NextResponse.json({ error: "Failed to remove from favorites" }, { status: 500 })
+      }
     }
 
     return NextResponse.json({
       success: true,
-      image: data,
       message: isFavorite ? "Added to favorites" : "Removed from favorites",
     })
   } catch (error) {

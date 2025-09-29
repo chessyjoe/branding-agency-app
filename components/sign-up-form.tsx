@@ -1,7 +1,6 @@
 "use client"
 
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
+import { useFormState, useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
@@ -31,7 +30,7 @@ function SubmitButton() {
 
 export default function SignUpForm() {
   // Initialize with null as the initial state
-  const [state, formAction] = useActionState(signUp, null)
+  const [state, formAction] = useFormState(signUp, null)
 
   return (
     <div className="w-full max-w-md space-y-8">

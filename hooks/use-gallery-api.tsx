@@ -37,6 +37,7 @@ export function useGalleryApi() {
   const { getCachedData, setCachedData, clearUserCache } = useGalleryCache()
   const abortControllerRef = useRef<AbortController | null>(null)
   const activeRequestsRef = useRef<Set<string>>(new Set())
+  const inFlightMapRef = useRef<Map<string, Promise<{ images: GeneratedImage[]; hasMore: boolean }>>>(new Map())
 
   const fetchImages = useCallback(
     async (offset = 0, limit = 20, retryCount = 0): Promise<{ images: GeneratedImage[]; hasMore: boolean }> => {
@@ -46,8 +47,8 @@ export function useGalleryApi() {
 
       const requestKey = `${user.id}-${offset}-${limit}`
 
-      if (activeRequestsRef.current.has(requestKey)) {
-        throw new Error("Request already in progress")
+      if (inFlightMapRef.current.has(requestKey)) {
+        return inFlightMapRef.current.get(requestKey) as Promise<{ images: GeneratedImage[]; hasMore: boolean }>
       }
 
       // Cancel previous request
@@ -76,31 +77,37 @@ export function useGalleryApi() {
           offset: offset.toString(),
         })
 
-        const response = await fetch(`/api/generation-history?${params}`, {
-          signal: abortController.signal,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
+        const requestPromise = (async () => {
+          const response = await fetch(`/api/generation-history?${params}`, {
+            signal: abortController.signal,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          })
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`HTTP ${response.status}: ${response.statusText}${errorText ? ` - ${errorText}` : ""}`)
-        }
-
-        const data = await response.json()
-
-        if (data.success) {
-          // Cache the response
-          setCachedData(cacheKey, data)
-
-          return {
-            images: data.images.map(transformImage),
-            hasMore: data.images.length === limit,
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`HTTP ${response.status}: ${response.statusText}${errorText ? ` - ${errorText}` : ""}`)
           }
-        } else {
-          throw new Error(data.error || "Failed to fetch images")
-        }
+
+          const data = await response.json()
+
+          if (data.success) {
+            // Cache the response
+            setCachedData(cacheKey, data)
+
+            return {
+              images: data.images.map(transformImage),
+              hasMore: data.images.length === limit,
+            }
+          } else {
+            throw new Error(data.error || "Failed to fetch images")
+          }
+        })()
+        inFlightMapRef.current.set(requestKey, requestPromise)
+        const result = await requestPromise
+        inFlightMapRef.current.delete(requestKey)
+        return result
       } catch (err: any) {
         if (err.name === "AbortError") {
           throw err // Let caller handle abort
@@ -121,6 +128,7 @@ export function useGalleryApi() {
         throw err
       } finally {
         activeRequestsRef.current.delete(requestKey)
+        inFlightMapRef.current.delete(requestKey)
         if (abortControllerRef.current === abortController) {
           abortControllerRef.current = null
         }

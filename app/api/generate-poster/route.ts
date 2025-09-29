@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const prompt = formData.get("prompt") as string
     const model = formData.get("model") as string
-    const userId = formData.get("userId") as string
     const colors = JSON.parse((formData.get("colors") as string) || "[]")
     const brandVoice = JSON.parse((formData.get("brandVoice") as string) || "{}")
     const advancedOptions = JSON.parse((formData.get("advancedOptions") as string) || "{}")
@@ -17,17 +17,15 @@ export async function POST(request: NextRequest) {
 
     // Get API keys from environment
     const openaiApiKey = process.env.OPENAI_API_KEY
-    const togetherApiKey = process.env.TOGETHER_API_KEY
     const blackforestApiKey = process.env.BLACKFOREST_API_KEY
 
     console.log("[v0] Available API keys:", {
       openai: !!openaiApiKey,
-      together: !!togetherApiKey,
       blackforest: !!blackforestApiKey,
       selectedModel: model,
     })
 
-    let imageUrl: string
+    let imageUrl: string = ""
     let refinedPrompt = prompt
 
     try {
@@ -212,58 +210,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (
-        !imageUrl &&
-        togetherApiKey &&
-        (model.includes("Free") ||
-          model.includes("together") ||
-          model.includes("stabilityai") ||
-          model.includes("playground") ||
-          !generationAttempted)
-      ) {
-        try {
-          console.log("[v0] Attempting Together AI generation")
-          generationAttempted = true
-
-          let togetherModel = model
-          if (model.includes("FLUX.1-schnell-Free")) {
-            togetherModel = "black-forest-labs/FLUX.1-schnell-Free"
-          } else if (!model.includes("stabilityai") && !model.includes("playground")) {
-            togetherModel = "stabilityai/stable-diffusion-xl-base-1.0"
-          }
-
-          const response = await fetch("https://api.together.xyz/v1/images/generations", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${togetherApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: togetherModel,
-              prompt: refinedPrompt,
-              width: 1024,
-              height: 1792,
-              steps: advancedOptions.quality || 8,
-              n: 1,
-            }),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            lastError = `Together AI: ${errorData.error?.message || "API error"}`
-            throw new Error(errorData.error?.message || "Together AI API error")
-          }
-
-          const data = await response.json()
-          imageUrl = data.data[0].url
-          console.log("[v0] Together AI generation successful")
-        } catch (togetherError) {
-          console.log("[v0] Together AI failed:", togetherError)
-          if (!lastError) {
-            lastError = `Together AI: ${togetherError instanceof Error ? togetherError.message : "Unknown error"}`
-          }
-        }
-      }
+      // Removed Together AI fallback
 
       if (!imageUrl) {
         if (!generationAttempted) {
@@ -276,12 +223,7 @@ export async function POST(request: NextRequest) {
           ) {
             missingKeys.push("BLACKFOREST_API_KEY")
           }
-          if (
-            (model.includes("Free") || model.includes("stabilityai") || model.includes("playground")) &&
-            !togetherApiKey
-          ) {
-            missingKeys.push("TOGETHER_API_KEY")
-          }
+          // Together API removed; no key required
 
           const errorMessage =
             missingKeys.length > 0
@@ -298,11 +240,16 @@ export async function POST(request: NextRequest) {
 
       // Auto-save the generated poster
       try {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
         await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: userId || "demo-user",
+            // userId derived from session in auto-save
             type: "poster",
             prompt,
             refinedPrompt,

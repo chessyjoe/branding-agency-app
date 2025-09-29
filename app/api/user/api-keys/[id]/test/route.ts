@@ -1,19 +1,24 @@
-import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 import { decrypt } from "@/lib/encryption"
 import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAI } from "@ai-sdk/openai"
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const supabase = createServerClient()
-    const userId = 'demo-user' // In real app, get from auth
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return Response.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
-    // Get the API key
+    // Get the API key for the authenticated user
     const { data: apiKeyData, error: keyError } = await supabase
       .from('api_keys')
       .select('*')
       .eq('id', params.id)
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .single()
 
     if (keyError) throw keyError
@@ -28,10 +33,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       switch (apiKeyData.service) {
         case 'openai':
           // Test OpenAI API
+          const openaiClient = createOpenAI({ apiKey: decryptedKey })
           const { text } = await generateText({
-            model: openai("gpt-3.5-turbo", { apiKey: decryptedKey }),
+            model: openaiClient("gpt-4o"),
             prompt: "Say 'API test successful' if you can read this.",
-            maxTokens: 10
           })
           testResult = {
             success: true,
@@ -66,7 +71,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
         case 'supabase':
           // Test Supabase connection
-          const testSupabase = createServerClient()
+          const testSupabase = await createClient()
           const { error: testError } = await testSupabase.from('generations').select('count').limit(1)
           testResult = {
             success: !testError,
@@ -76,13 +81,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           break
 
         case 'together':
-          // Test Together AI API
-          const togetherResponse = await fetch('https://api.together.xyz/v1/models', {
-            headers: { 'Authorization': `Bearer ${decryptedKey}` }
-          })
           testResult = {
-            success: togetherResponse.ok,
-            message: togetherResponse.ok ? 'Together AI API key is working correctly' : 'Together AI API key test failed',
+            success: false,
+            message: 'Together AI provider is no longer supported',
             responseTime: Date.now() - startTime
           }
           break

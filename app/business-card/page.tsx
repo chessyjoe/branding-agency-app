@@ -58,19 +58,19 @@ const models = [
     name: "Flux Schnell (Free)",
     value: "black-forest-labs/FLUX.1-schnell-Free",
     description: "Fast and free Flux model for quick iterations",
-    provider: "Together AI",
+    provider: "",
   },
   {
     name: "Stable Diffusion XL",
     value: "stabilityai/stable-diffusion-xl-base-1.0",
     description: "High-quality image generation with excellent detail",
-    provider: "Together AI",
+    provider: "",
   },
   {
     name: "Playground v2.5",
     value: "playgroundai/playground-v2.5-1024px-aesthetic",
     description: "Aesthetic-focused model for beautiful visuals",
-    provider: "Together AI",
+    provider: "",
   },
 ]
 
@@ -135,17 +135,31 @@ export default function BusinessCardPage() {
     highResolution: true,
     customDimensions: undefined,
   })
+  const handleAdvancedOptionsChange = (opts: any) => {
+    setAdvancedOptions({
+      aspectRatio: typeof opts?.aspectRatio === "string" ? opts.aspectRatio : "16:10",
+      style: Array.isArray(opts?.style) ? opts.style : [],
+      quality: typeof opts?.quality === "number" ? opts.quality : 8,
+      creativity: typeof opts?.creativity === "number" ? opts.creativity : 6,
+      iterations: typeof opts?.iterations === "number" ? opts.iterations : 1,
+      seed: typeof opts?.seed === "number" ? opts.seed : undefined,
+      negativePrompt: typeof opts?.negativePrompt === "string" ? opts.negativePrompt : "",
+      enhancePrompt: opts?.enhancePrompt !== false,
+      highResolution: opts?.highResolution !== false,
+      customDimensions: opts?.customDimensions,
+    })
+  }
   const [uploadedFiles, setUploadedFiles] = useState<{
     reference?: File
     logo?: File
-    brandGuide?: File
+    content?: File
   }>({})
 
-  const handleFileUpload = (file: File, type: "reference" | "logo" | "brand-guide") => {
+  const handleFileUpload = (file: File, type: "reference" | "logo" | "content") => {
     setUploadedFiles((prev) => ({ ...prev, [type]: file }))
   }
 
-  const handleFileRemove = (type: "reference" | "logo" | "brand-guide") => {
+  const handleFileRemove = (type: "reference" | "logo" | "content") => {
     setUploadedFiles((prev) => {
       const updated = { ...prev }
       delete updated[type]
@@ -164,7 +178,6 @@ export default function BusinessCardPage() {
       const formData = new FormData()
       formData.append("prompt", prompt)
       formData.append("model", selectedModel)
-      formData.append("userId", "demo-user")
       formData.append("colors", JSON.stringify(colors))
       formData.append("brandVoice", JSON.stringify(brandVoice))
       formData.append("advancedOptions", JSON.stringify(advancedOptions))
@@ -240,7 +253,6 @@ export default function BusinessCardPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: "demo-user",
           type: "business-card",
           prompt,
           refinedPrompt: result.refinedPrompt,
@@ -662,7 +674,7 @@ export default function BusinessCardPage() {
                         maxSize={20}
                         label="Brand Guidelines"
                         description="Upload brand style guide or guidelines document"
-                        type="brand-guide"
+                        type="content"
                       />
                     </CardContent>
                   </CollapsibleContent>
@@ -719,11 +731,7 @@ export default function BusinessCardPage() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <CardContent>
-                      <AdvancedOptions
-                        options={advancedOptions}
-                        onOptionsChange={setAdvancedOptions}
-                        type="business-card"
-                      />
+                      <AdvancedOptions options={advancedOptions as any} onOptionsChange={handleAdvancedOptionsChange} type="business-card" />
                     </CardContent>
                   </CollapsibleContent>
                 </Card>

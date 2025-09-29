@@ -3,9 +3,9 @@ import { type NextRequest, NextResponse } from "next/server"
 // Mock user settings data
 const mockSettings = {
   user: {
-    id: "demo-user",
-    name: "Demo User",
-    email: "demo@example.com",
+    id: "",
+    name: "",
+    email: "",
     avatar: "/placeholder-user.jpg",
   },
   preferences: {
