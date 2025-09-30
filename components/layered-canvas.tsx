@@ -44,18 +44,42 @@ export function LayeredCanvas({
     return { img, cleanupImage }
   }, [])
 
+  const [isLoadingImage, setIsLoadingImage] = useState(false)
+
   useEffect(() => {
-    if (image && layers.length === 0) {
+    if (image && layers.length === 0 && !isLoadingImage) {
+      setIsLoadingImage(true)
+      
       const imageLayer = createLayer("image", "Background")
+      if (!imageLayer) {
+        console.error("[v0] Failed to create image layer")
+        setIsLoadingImage(false)
+        return
+      }
+
       const { img, cleanupImage } = createTrackedImage()
+
+      // Check if we need to use proxy BEFORE loading
+      const needsProxy =
+        image.includes("bfl.ai") ||
+        image.includes("delivery-") ||
+        image.includes("blob.core.windows.net") ||
+        image.includes("oaidalleapiprodscus.blob.core.windows.net") ||
+        (image.startsWith("https://") && !image.includes(window.location.hostname))
+
+      const imageUrl = needsProxy && !image.includes("/api/proxy-image") 
+        ? `/api/proxy-image?url=${encodeURIComponent(image)}` 
+        : image
+
+      console.log("[v0] Loading image for layer system:", {
+        original: image,
+        needsProxy,
+        finalUrl: imageUrl,
+        isProxied: imageUrl !== image
+      })
 
       img.crossOrigin = "anonymous"
       img.onload = () => {
-        if (isUnmountedRef.current) {
-          cleanupImage()
-          return
-        }
-
         const ctx = imageLayer.canvas.getContext("2d")
         if (ctx) {
           imageLayer.canvas.width = img.width
@@ -64,84 +88,31 @@ export function LayeredCanvas({
           createLayer("drawing", "Drawing Layer 1")
         }
         cleanupImage()
+        setIsLoadingImage(false)
       }
 
       img.onerror = () => {
-        if (isUnmountedRef.current) {
-          cleanupImage()
-          return
-        }
-
-        console.log("[v0] Failed to load image for layer system")
-        const needsProxy =
-          image.includes("bfl.ai") ||
-          image.includes("delivery-") ||
-          (image.startsWith("https://") && !image.includes(window.location.hostname))
-
-        if (needsProxy && !image.includes("/api/proxy-image")) {
-          const proxiedUrl = `/api/proxy-image?url=${encodeURIComponent(image)}`
-          console.log("[v0] Retrying with proxy:", proxiedUrl)
-
-          const { img: retryImg, cleanupImage: cleanupRetryImage } = createTrackedImage()
-          retryImg.crossOrigin = "anonymous"
-          retryImg.onload = () => {
-            if (isUnmountedRef.current) {
-              cleanupRetryImage()
-              return
-            }
-
-            const ctx = imageLayer.canvas.getContext("2d")
-            if (ctx) {
-              imageLayer.canvas.width = retryImg.width
-              imageLayer.canvas.height = retryImg.height
-              ctx.drawImage(retryImg, 0, 0)
-              createLayer("drawing", "Drawing Layer 1")
-            }
-            cleanupRetryImage()
-          }
-          retryImg.onerror = () => {
-            if (isUnmountedRef.current) {
-              cleanupRetryImage()
-              return
-            }
-
-            console.error("[v0] Failed to load image even with proxy")
-            // Create a fallback canvas with error message
-            const ctx = imageLayer.canvas.getContext("2d")
-            if (ctx) {
-              imageLayer.canvas.width = 800
-              imageLayer.canvas.height = 600
-              ctx.fillStyle = "#f1f5f9"
-              ctx.fillRect(0, 0, 800, 600)
-              ctx.fillStyle = "#64748b"
-              ctx.font = "16px sans-serif"
-              ctx.textAlign = "center"
-              ctx.fillText("Failed to load image", 400, 300)
-              createLayer("drawing", "Drawing Layer 1")
-            }
-            cleanupRetryImage()
-          }
-          retryImg.src = proxiedUrl
-        } else {
-          // Create fallback canvas for other errors
-          const ctx = imageLayer.canvas.getContext("2d")
-          if (ctx) {
-            imageLayer.canvas.width = 800
-            imageLayer.canvas.height = 600
-            ctx.fillStyle = "#f1f5f9"
-            ctx.fillRect(0, 0, 800, 600)
-            ctx.fillStyle = "#64748b"
-            ctx.font = "16px sans-serif"
-            ctx.textAlign = "center"
-            ctx.fillText("Failed to load image", 400, 300)
-            createLayer("drawing", "Drawing Layer 1")
-          }
+        console.error("[v0] Failed to load image for layer system:", imageUrl)
+        
+        // Create fallback canvas with error message
+        const ctx = imageLayer.canvas.getContext("2d")
+        if (ctx) {
+          imageLayer.canvas.width = 800
+          imageLayer.canvas.height = 600
+          ctx.fillStyle = "#f1f5f9"
+          ctx.fillRect(0, 0, 800, 600)
+          ctx.fillStyle = "#64748b"
+          ctx.font = "16px sans-serif"
+          ctx.textAlign = "center"
+          ctx.fillText("Failed to load image", 400, 300)
+          createLayer("drawing", "Drawing Layer 1")
         }
         cleanupImage()
+        setIsLoadingImage(false)
       }
-      img.src = image
+      img.src = imageUrl
     }
-  }, [image, layers.length, createLayer, createTrackedImage])
+  }, [image, layers.length, createLayer, createTrackedImage, isLoadingImage])
 
   useEffect(() => {
     const canvas = compositeCanvasRef.current

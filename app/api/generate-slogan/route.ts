@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
+import { createPromptEnhancer } from '@/lib/prompt-enhancement/enhancer'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,31 +18,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
-    let systemPrompt = "You are a creative copywriter specializing in memorable slogans and taglines. Create 5 unique, catchy slogans based on the user's description. Make them memorable, brandable, and suitable for marketing use."
+    // Enhance the prompt using the modular system
+    const enhancer = createPromptEnhancer(process.env.OPENAI_API_KEY || "")
+    const enhancementResult = await enhancer.enhancePrompt({
+      prompt,
+      type: "slogan",
+      brandVoice,
+      advancedOptions
+    })
 
-    if (brandVoice?.personality) {
-      const personality = Object.entries(brandVoice.personality)
-        .filter(([_, value]) => (value as number) > 6)
-        .map(([key, _]) => key)
-        .join(', ')
-      if (personality) {
-        systemPrompt += ` The brand personality should be ${personality}.`
-      }
-    }
+    const enhancedPrompt = enhancementResult.success && enhancementResult.data 
+      ? enhancementResult.data.prompt 
+      : prompt
 
-    if (brandVoice?.tone?.length > 0) {
-      systemPrompt += ` The tone should be ${brandVoice.tone.join(', ')}.`
-    }
-
-    if (brandVoice?.targetAudience) {
-      systemPrompt += ` Target audience: ${brandVoice.targetAudience}.`
-    }
+    // Use the enhanced prompt for slogan generation
+    const systemPrompt = "You are a creative copywriter specializing in memorable slogans and taglines. Create 5 unique, catchy slogans based on the user's description. Make them memorable, brandable, and suitable for marketing use."
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: prompt }
+        { role: "user", content: enhancedPrompt }
       ],
       max_tokens: 300,
       temperature: 0.8,

@@ -61,18 +61,28 @@ const models = [
   },
 ]
 
+interface GenerationResult {
+  imageUrl?: string
+  svg?: string
+  svgContent?: string
+  svgFallback?: boolean
+  resultType: "image" | "svg"
+  refinedPrompt?: string
+  metadata?: {
+    hasSvg?: boolean
+    svgLength?: number
+    svgFallback?: boolean
+    generatedAt?: string
+  }
+}
+
 export default function LogoPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [prompt, setPrompt] = useState("")
   const [selectedModel, setSelectedModel] = useState("flux-schnell")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [result, setResult] = useState<{
-    imageUrl?: string
-    svg?: string
-    resultType: "image" | "svg"
-    refinedPrompt?: string
-  } | null>(null)
+  const [result, setResult] = useState<GenerationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isReferenceFilesOpen, setIsReferenceFilesOpen] = useState(false)
   const [isColorPaletteOpen, setIsColorPaletteOpen] = useState(false)
@@ -197,8 +207,11 @@ export default function LogoPage() {
         setResult({
           imageUrl: data.imageUrl,
           svg: data.svg,
+          svgContent: data.svgContent,
+          svgFallback: data.svgFallback,
           resultType: data.resultType,
           refinedPrompt: data.refinedPrompt,
+          metadata: data.metadata,
         })
       } else {
         throw new Error(data.error || "Generation failed")
@@ -291,6 +304,8 @@ export default function LogoPage() {
     // Store the image data in sessionStorage for the editor
     const editorData = {
       imageUrl: result.imageUrl,
+      svgContent: result.svgContent,
+      svgFallback: result.svgFallback,
       originalPrompt: prompt,
       refinedPrompt: result.refinedPrompt,
       type: "logo",
@@ -298,6 +313,7 @@ export default function LogoPage() {
       brandVoice,
       advancedOptions,
       eventDetails,
+      metadata: result.metadata,
     }
 
     sessionStorage.setItem("editorImageData", JSON.stringify(editorData))

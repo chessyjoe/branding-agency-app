@@ -6,12 +6,13 @@ import { validateString } from "@/lib/utils"
 export async function POST(request: NextRequest) {
   try {
     const { user, error: authError } = await validateAuthentication(request)
-    if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-
+    
+    // Handle demo mode when authentication fails
+    const isDemoMode = authError || !user
+    const userId = user?.id || "demo-user"
+    
     const clientIP = request.ip || request.headers.get("x-forwarded-for") || "unknown"
-    if (!rateLimiter.checkLimit(`inpaint-${user.id}-${clientIP}`, 5, 300000)) {
+    if (!rateLimiter.checkLimit(`inpaint-${userId}-${clientIP}`, 5, 300000)) {
       // 5 requests per 5 minutes
       return NextResponse.json({ error: "Rate limit exceeded. Please try again later." }, { status: 429 })
     }
@@ -78,27 +79,31 @@ export async function POST(request: NextRequest) {
       const data = await response.json()
       const editedImageUrl = data.data[0].url
 
-      // Auto-save the edited image
-      try {
-        await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: user.id,
-            type: "ai-edit",
-            prompt: `AI Inpainting: ${sanitizedPrompt}`,
-            refinedPrompt: sanitizedPrompt,
-            model: sanitizedModel, // Use sanitizedModel if needed for downstream API calls
-            result: { imageUrl: editedImageUrl },
-            colors: [],
-            brandVoice: {},
-            advancedOptions: { editType: "inpaint" },
-            aspectRatio: "1:1",
-            tags: ["ai-edit", "inpainting", "edited"],
-          }),
-        })
-      } catch (autoSaveError) {
-        console.warn("Auto-save failed:", autoSaveError)
+      // Auto-save the edited image (skip in demo mode)
+      if (!isDemoMode) {
+        try {
+          await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: userId,
+              type: "ai-edit",
+              prompt: `AI Inpainting: ${sanitizedPrompt}`,
+              refinedPrompt: sanitizedPrompt,
+              model: sanitizedModel, // Use sanitizedModel if needed for downstream API calls
+              result: { imageUrl: editedImageUrl },
+              colors: [],
+              brandVoice: {},
+              advancedOptions: { editType: "inpaint" },
+              aspectRatio: "1:1",
+              tags: ["ai-edit", "inpainting", "edited"],
+            }),
+          })
+        } catch (autoSaveError) {
+          console.warn("Auto-save failed:", autoSaveError)
+        }
+      } else {
+        console.log("[v0] Skipping auto-save in demo mode")
       }
 
       return NextResponse.json({

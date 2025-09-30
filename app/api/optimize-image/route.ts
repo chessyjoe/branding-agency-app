@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       "amazonaws.com",
       "cloudfront.net",
       "supabase.co",
+      "oaidalleapiprodscus.blob.core.windows.net", // Azure Blob Storage for DALL-E
+      "blob.core.windows.net", // General Azure Blob Storage
     ]
 
     const isAllowedDomain = allowedDomains.some((domain) => {

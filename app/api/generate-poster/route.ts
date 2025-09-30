@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { integrateDualGeneration, type UniversalDualRequest } from "@/lib/dual-generation/integration-utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,9 +55,8 @@ export async function POST(request: NextRequest) {
 
         if (enhanceResponse.ok) {
           const enhanceData = await enhanceResponse.json()
-          if (enhanceData.refinedPromptData) {
-            // Use the enhanced prompt from JSON structure
-            refinedPrompt = enhanceData.refinedPromptData.prompt || prompt
+          if (enhanceData.refinedPromptData?.prompt) {
+            refinedPrompt = enhanceData.refinedPromptData.prompt
 
             console.log("[v0] Prompt enhancement output:", {
               originalPrompt: prompt,
@@ -68,9 +68,7 @@ export async function POST(request: NextRequest) {
               composition: enhanceData.refinedPromptData.composition,
             })
           } else {
-            // Fallback for backward compatibility
-            refinedPrompt = enhanceData.refinedPrompt || prompt
-            console.log("[v0] Using fallback refined prompt:", refinedPrompt)
+            console.log("[v0] No enhanced prompt available, using original")
           }
         } else {
           console.log("[v0] Prompt enhancement failed:", enhanceResponse.status, await enhanceResponse.text())
@@ -238,6 +236,44 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Generate SVG content for the editor
+      let svgContent: string | undefined
+      let svgFallback = false
+
+      try {
+        console.log("[v0] Starting dual generation for poster SVG content...")
+        
+        const dualRequest: UniversalDualRequest = {
+          prompt: refinedPrompt,
+          type: "poster",
+          colors,
+          brandVoice,
+          advancedOptions,
+          eventDetails,
+          width: 600,
+          height: 900
+        }
+
+        const { svgContent: generatedSvg, fallback } = await integrateDualGeneration(
+          openaiApiKey || "",
+          dualRequest,
+          imageUrl
+        )
+
+        svgContent = generatedSvg
+        svgFallback = fallback || false
+
+        console.log("[v0] Poster SVG generation completed:", {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          fallback: svgFallback
+        })
+
+      } catch (svgError) {
+        console.error("[v0] Poster SVG generation failed:", svgError)
+        // Continue without SVG content
+      }
+
       // Auto-save the generated poster
       try {
         const supabase = await createClient()
@@ -254,7 +290,10 @@ export async function POST(request: NextRequest) {
             prompt,
             refinedPrompt,
             model,
-            result: { imageUrl },
+            result: { 
+              imageUrl,
+              svg: svgContent || null
+            },
             colors,
             brandVoice,
             advancedOptions,
@@ -270,9 +309,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         imageUrl,
+        svgContent,
+        svgFallback,
         refinedPrompt,
         resultType: "image",
         message: "Poster generated and auto-saved successfully",
+        metadata: {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          svgFallback,
+          generatedAt: new Date().toISOString()
+        }
       })
     } catch (error) {
       console.error("Poster generation error:", error)

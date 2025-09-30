@@ -81,7 +81,15 @@ export default function BannerPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<{
     imageUrl?: string
+    svgContent?: string
+    svgFallback?: boolean
     refinedPrompt?: string
+    metadata?: {
+      hasSvg?: boolean
+      svgLength?: number
+      svgFallback?: boolean
+      generatedAt?: string
+    }
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isReferenceFilesOpen, setIsReferenceFilesOpen] = useState(false)
@@ -202,7 +210,10 @@ export default function BannerPage() {
       if (data.success) {
         setResult({
           imageUrl: data.imageUrl,
+          svgContent: data.svgContent,
+          svgFallback: data.svgFallback,
           refinedPrompt: data.refinedPrompt,
+          metadata: data.metadata,
         })
       } else {
         throw new Error(data.error || "Generation failed")
@@ -283,6 +294,8 @@ export default function BannerPage() {
     // Store the image data in sessionStorage for the editor
     const editorData = {
       imageUrl: result.imageUrl,
+      svgContent: result.svgContent,
+      svgFallback: result.svgFallback,
       originalPrompt: prompt,
       refinedPrompt: result.refinedPrompt,
       type: "banner",
@@ -290,6 +303,7 @@ export default function BannerPage() {
       brandVoice,
       advancedOptions,
       eventDetails,
+      metadata: result.metadata,
     }
 
     sessionStorage.setItem("editorImageData", JSON.stringify(editorData))

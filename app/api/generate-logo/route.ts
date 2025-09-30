@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { integrateDualGeneration, prepareDualGenerationData, type UniversalDualRequest } from "@/lib/dual-generation/integration-utils"
 
 interface LogoGenerationRequest {
   prompt: string
@@ -296,6 +297,44 @@ export async function POST(request: NextRequest) {
         throw lastError || new Error("All providers failed - no valid API key found for the selected model")
       }
 
+      // Generate SVG content for the editor
+      let svgContent: string | undefined
+      let svgFallback = false
+
+      try {
+        console.log("[v0] Starting dual generation for SVG content...")
+        
+        const dualRequest: UniversalDualRequest = {
+          prompt: refinedPrompt,
+          type: "logo",
+          colors,
+          brandVoice,
+          advancedOptions,
+          eventDetails,
+          width: 400,
+          height: 400
+        }
+
+        const { svgContent: generatedSvg, fallback } = await integrateDualGeneration(
+          apiKeys.openaiApiKey || "",
+          dualRequest,
+          imageUrl
+        )
+
+        svgContent = generatedSvg
+        svgFallback = fallback || false
+
+        console.log("[v0] SVG generation completed:", {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          fallback: svgFallback
+        })
+
+      } catch (svgError) {
+        console.error("[v0] SVG generation failed:", svgError)
+        // Continue without SVG content
+      }
+
       try {
         const autoSaveResponse = await fetch(`${request.nextUrl.origin}/api/auto-save-generation`, {
           method: "POST",
@@ -306,7 +345,10 @@ export async function POST(request: NextRequest) {
             prompt,
             refinedPrompt,
             model,
-            result: { imageUrl },
+            result: { 
+              imageUrl,
+              svg: svgContent || null
+            },
             colors,
             brandVoice,
             advancedOptions,
@@ -330,6 +372,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         imageUrl: normalizedResult.url,
+        svgContent,
+        svgFallback,
         refinedPrompt: normalizedResult.metadata.refinedPrompt,
         provider: normalizedResult.metadata.provider,
         resultType: "image",
@@ -337,6 +381,12 @@ export async function POST(request: NextRequest) {
         message: autoSaved
           ? "Logo generated and auto-saved successfully"
           : "Logo generated successfully (auto-save failed - you can manually save from the gallery)",
+        metadata: {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          svgFallback,
+          generatedAt: new Date().toISOString()
+        }
       })
     } catch (error) {
       console.error("[v0] Logo generation error:", error)

@@ -86,7 +86,6 @@ export function AIEditingPanel({ layers = [], activeLayerId, onLayerUpdate, onCr
       formData.append("image", imageBlob, "image.png")
       formData.append("mask", maskBlob, "mask.png")
       formData.append("prompt", prompt)
-      formData.append("userId", "demo-user")
       formData.append("model", aiModel)
 
       const response = await fetch("/api/ai-inpaint", {

@@ -44,6 +44,8 @@ function useImageSafe(src: string | null) {
     const needsProxy =
       src.includes("bfl.ai") ||
       src.includes("delivery-") ||
+      src.includes("blob.core.windows.net") ||
+      src.includes("oaidalleapiprodscus.blob.core.windows.net") ||
       (src.startsWith("https://") && !src.includes(window.location.hostname))
 
     const imageUrl = needsProxy ? `/api/proxy-image?url=${encodeURIComponent(src)}` : src

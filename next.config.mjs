@@ -18,18 +18,24 @@ const nextConfig = {
   },
   async headers() {
     const isProd = process.env.NODE_ENV === "production"
-    if (!isProd) return []
+    
+    // CSP configuration that allows necessary functionality
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'strict-dynamic' https: http:",
-      "style-src 'self' 'unsafe-inline' https: http:",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: data: https://cdn.tailwindcss.com",
+      "script-src-elem 'self' 'unsafe-inline' https: http: data: https://cdn.tailwindcss.com",
+      "style-src 'self' 'unsafe-inline' https: http: data: https://cdn.tailwindcss.com",
       "img-src 'self' data: blob: https: http:",
       "connect-src 'self' https: http:",
       "font-src 'self' https: data:",
+      "frame-src 'self' data:",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",
+      "object-src 'none'",
+      "media-src 'self' data: blob:",
     ].join('; ')
+    
     return [
       {
         source: "/:path*",

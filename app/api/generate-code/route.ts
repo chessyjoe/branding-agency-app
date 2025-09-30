@@ -1,5 +1,6 @@
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
+import { createPromptEnhancer } from "@/lib/prompt-enhancement/enhancer"
 import { createClient } from "@/lib/supabase/server"
 
 export async function POST(req: Request) {
@@ -46,23 +47,21 @@ export async function POST(req: Request) {
       enhancedPrompt += ` Accessibility requirements: ${requirements.accessibility}.`
     }
 
-    // First, enhance the prompt with OpenAI
-    const { text: refinedPrompt } = await generateText({
-      model: openai("gpt-4o"),
-      system: `You are an expert software engineer and code architect. Refine the user's code request into a detailed, technical specification that will generate the best possible code. Include specific details about:
-
-      1. Code structure and architecture
-      2. Best practices and design patterns
-      3. Error handling and edge cases
-      4. Performance optimizations
-      5. Security considerations
-      6. Accessibility features
-      7. Testing requirements
-      8. Documentation needs
-
-      Focus on creating production-ready, maintainable, and well-documented code.`,
-      prompt: `Original request: "${enhancedPrompt}"\n\nPlease refine this into a detailed, professional specification for generating high-quality ${language} code using ${framework}. Include specific technical requirements, code structure, and implementation details.`,
+    // Enhance the prompt using the modular system
+    const enhancer = createPromptEnhancer(process.env.OPENAI_API_KEY || "")
+    const enhancementResult = await enhancer.enhancePrompt({
+      prompt: enhancedPrompt,
+      type: "code",
+      customContext: {
+        language,
+        framework,
+        requirements
+      }
     })
+
+    const refinedPrompt = enhancementResult.success && enhancementResult.data 
+      ? enhancementResult.data.prompt 
+      : enhancedPrompt
 
     // Generate the main code
     const { text: generatedCode } = await generateText({

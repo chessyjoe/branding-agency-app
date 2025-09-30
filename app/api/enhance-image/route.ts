@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { imageEnhancementTemplates } from "@/lib/prompt-enhancement/templates"
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,23 +19,9 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      let enhancementPrompt: string
-
-      switch (enhancementType) {
-        case "upscale":
-          enhancementPrompt =
-            "high resolution, ultra detailed, sharp, crisp, enhanced quality, 4K, professional photography"
-          break
-        case "colorize":
-          enhancementPrompt =
-            "vibrant colors, enhanced saturation, natural color grading, professional color correction"
-          break
-        case "quality":
-        default:
-          enhancementPrompt =
-            "enhanced quality, improved clarity, noise reduction, professional photo enhancement, sharp details"
-          break
-      }
+      // Get enhancement template based on type
+      const enhancementTemplate = imageEnhancementTemplates[enhancementType as keyof typeof imageEnhancementTemplates] || imageEnhancementTemplates.quality
+      const enhancementPrompt = enhancementTemplate.prompt
 
       const imageBuffer = await imageFile.arrayBuffer()
 

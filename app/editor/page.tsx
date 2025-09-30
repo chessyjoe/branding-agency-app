@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -38,6 +39,7 @@ import { ExportPanel } from "@/components/export-panel"
 import { ImportPanel } from "@/components/import-panel"
 
 export default function ImageEditorPage() {
+  const { user, loading, isConfigured } = useAuth()
   const [selectedTool, setSelectedTool] = useState("select")
   const [brushSize, setBrushSize] = useState(10)
   const [opacity, setOpacity] = useState(100)
@@ -56,6 +58,8 @@ export default function ImageEditorPage() {
 
   const [layers, setLayers] = useState<Layer[]>([])
   const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
+  const [isLoadingSVG, setIsLoadingSVG] = useState(false)
+  const [hasLoadedEditorData, setHasLoadedEditorData] = useState(false)
 
   const {
     layers: systemLayers,
@@ -70,6 +74,14 @@ export default function ImageEditorPage() {
   } = useLayerSystem()
 
   const { handleExport, saveProject, importImageAsLayer } = useExportImport()
+
+  // Handle authentication state
+  useEffect(() => {
+    if (!loading && isConfigured && !user) {
+      console.log("[v0] User not authenticated, redirecting to login")
+      window.location.href = "/auth/login?redirectTo=/editor"
+    }
+  }, [user, loading, isConfigured])
 
   useEffect(() => {
     setLayers(systemLayers)
@@ -156,26 +168,162 @@ export default function ImageEditorPage() {
     }
   }, [])
 
+  // Function to load SVG content into the editor
+  const loadSVGContent = useCallback(async (svgContent: string) => {
+    if (isLoadingSVG) {
+      console.log("[v0] SVG loading already in progress, skipping duplicate request")
+      return
+    }
+
+    try {
+      setIsLoadingSVG(true)
+      console.log("[v0] Loading SVG content into editor...")
+      
+      // Create a new layer for the SVG content
+      const svgLayer = createLayer("image", "SVG Content")
+      if (!svgLayer) {
+        console.error("[v0] Failed to create SVG layer - createLayer returned null")
+        setIsLoadingSVG(false)
+        return
+      }
+
+      loadSVGToCanvas(svgLayer, svgContent)
+      setIsLoadingSVG(false)
+    } catch (error) {
+      console.error("[v0] Failed to load SVG content:", error)
+      setIsLoadingSVG(false)
+    }
+  }, [createLayer, isLoadingSVG])
+
+  const loadSVGToCanvas = useCallback((svgLayer: any, svgContent: string) => {
+    try {
+      // Create an SVG element from the content
+      const parser = new DOMParser()
+      const svgDoc = parser.parseFromString(svgContent, "image/svg+xml")
+      const svgElement = svgDoc.documentElement
+
+      // Check for parsing errors
+      const parserError = svgDoc.querySelector("parsererror")
+      if (parserError) {
+        console.error("[v0] SVG parsing error:", parserError.textContent)
+        return
+      }
+
+      // Convert SVG to canvas
+      const canvas = svgLayer.canvas
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      // Create an image from the SVG with proper CORS handling
+      const svgBlob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" })
+      const svgUrl = URL.createObjectURL(svgBlob)
+      
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      
+      img.onload = () => {
+        try {
+          // Set canvas size to match SVG dimensions
+          const svgWidth = svgElement.getAttribute("width") || "400"
+          const svgHeight = svgElement.getAttribute("height") || "400"
+          
+          // Parse dimensions (remove 'px' if present)
+          const width = parseInt(svgWidth.replace(/[^0-9.]/g, '')) || 400
+          const height = parseInt(svgHeight.replace(/[^0-9.]/g, '')) || 400
+          
+          canvas.width = width
+          canvas.height = height
+          
+          // Clear canvas and draw the SVG
+          ctx.clearRect(0, 0, width, height)
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          URL.revokeObjectURL(svgUrl)
+          console.log("[v0] SVG content loaded successfully")
+        } catch (drawError) {
+          console.error("[v0] Failed to draw SVG to canvas:", drawError)
+          URL.revokeObjectURL(svgUrl)
+        }
+      }
+      
+      img.onerror = (error) => {
+        console.error("[v0] Failed to load SVG image:", error)
+        URL.revokeObjectURL(svgUrl)
+        
+        // Fallback: try to render SVG directly to canvas
+        try {
+          const svgWidth = svgElement.getAttribute("width") || "400"
+          const svgHeight = svgElement.getAttribute("height") || "400"
+          
+          const width = parseInt(svgWidth.replace(/[^0-9.]/g, '')) || 400
+          const height = parseInt(svgHeight.replace(/[^0-9.]/g, '')) || 400
+          
+          canvas.width = width
+          canvas.height = height
+          
+          // Set up a white background
+          ctx.fillStyle = "#ffffff"
+          ctx.fillRect(0, 0, width, height)
+          
+          // Add a placeholder message
+          ctx.fillStyle = "#666666"
+          ctx.font = "16px sans-serif"
+          ctx.textAlign = "center"
+          ctx.fillText("SVG Content", width / 2, height / 2)
+          
+          console.log("[v0] SVG fallback rendering completed")
+        } catch (fallbackError) {
+          console.error("[v0] SVG fallback rendering failed:", fallbackError)
+        }
+      }
+      
+      img.src = svgUrl
+
+    } catch (error) {
+      console.error("[v0] Failed to load SVG to canvas:", error)
+    }
+  }, [])
+
   useEffect(() => {
+    if (hasLoadedEditorData) {
+      console.log("[v0] Editor data already loaded, skipping")
+      return
+    }
+
     const editorData = sessionStorage.getItem("editorImageData")
     if (editorData) {
       try {
+        setHasLoadedEditorData(true)
         const data = JSON.parse(editorData)
         setCurrentImage(data.imageUrl)
         setEditorMetadata(data)
         console.log("[v0] Loaded editor data:", data)
+        
+        // Load SVG content if available - with a small delay to ensure layer system is ready
+        let timeoutId: NodeJS.Timeout | null = null
+        if (data.svgContent && !data.svgFallback) {
+          console.log("[v0] SVG content available, loading into editor")
+          // Use a longer delay to ensure layer system is fully ready
+          timeoutId = setTimeout(() => loadSVGContent(data.svgContent), 300)
+        } else if (data.svgContent && data.svgFallback) {
+          console.log("[v0] SVG content available but is fallback, loading anyway")
+          timeoutId = setTimeout(() => loadSVGContent(data.svgContent), 300)
+        } else {
+          console.log("[v0] No SVG content available, using regular image")
+        }
+
+        // Cleanup function to cancel timeout if component unmounts
+        return () => {
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+          }
+        }
       } catch (error) {
         console.error("[v0] Failed to parse editor data:", error)
+        setHasLoadedEditorData(false) // Reset on error so it can retry
       }
     }
-  }, [])
-
-  const tools = [
-    { id: "select", icon: MousePointer, label: "Select", shortcut: "V" },
-    { id: "move", icon: Move, label: "Move", shortcut: "M" },
-    { id: "crop", icon: Crop, label: "Crop", shortcut: "C" },
-    { id: "lasso", icon: MousePointer, label: "Lasso", shortcut: "L" },
-  ]
+  }, [loadSVGContent, hasLoadedEditorData])
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -234,6 +382,16 @@ export default function ImageEditorPage() {
       const layer = layers.find((l) => l.id === layerId)
       if (!layer) return
 
+      // Check if we need to use proxy for CORS
+      const needsProxy =
+        imageUrl.includes("bfl.ai") ||
+        imageUrl.includes("delivery-") ||
+        imageUrl.includes("blob.core.windows.net") ||
+        imageUrl.includes("oaidalleapiprodscus.blob.core.windows.net") ||
+        (imageUrl.startsWith("https://") && !imageUrl.includes(window.location.hostname))
+
+      const finalImageUrl = needsProxy ? `/api/proxy-image?url=${encodeURIComponent(imageUrl)}` : imageUrl
+
       const img = new Image()
       img.crossOrigin = "anonymous"
       img.onload = () => {
@@ -243,7 +401,10 @@ export default function ImageEditorPage() {
           ctx.drawImage(img, 0, 0, layer.canvas.width, layer.canvas.height)
         }
       }
-      img.src = imageUrl
+      img.onerror = (error) => {
+        console.error("[v0] Failed to load image for layer update:", error)
+      }
+      img.src = finalImageUrl
     },
     [layers],
   )
@@ -255,6 +416,16 @@ export default function ImageEditorPage() {
         return
       }
 
+      // Check if we need to use proxy for CORS
+      const needsProxy =
+        imageUrl.includes("bfl.ai") ||
+        imageUrl.includes("delivery-") ||
+        imageUrl.includes("blob.core.windows.net") ||
+        imageUrl.includes("oaidalleapiprodscus.blob.core.windows.net") ||
+        (imageUrl.startsWith("https://") && !imageUrl.includes(window.location.hostname))
+
+      const finalImageUrl = needsProxy ? `/api/proxy-image?url=${encodeURIComponent(imageUrl)}` : imageUrl
+
       const img = new Image()
       img.crossOrigin = "anonymous"
       img.onload = () => {
@@ -265,7 +436,10 @@ export default function ImageEditorPage() {
           ctx.drawImage(img, 0, 0)
         }
       }
-      img.src = imageUrl
+      img.onerror = (error) => {
+        console.error("[v0] Failed to load image for AI layer creation:", error)
+      }
+      img.src = finalImageUrl
     },
     [createLayer],
   )
@@ -281,6 +455,81 @@ export default function ImageEditorPage() {
   const handleZoomReset = useCallback(() => {
     setZoom([100])
   }, [])
+
+  const tools = [
+    { id: "select", icon: MousePointer, label: "Select", shortcut: "V" },
+    { id: "move", icon: Move, label: "Move", shortcut: "M" },
+    { id: "crop", icon: Crop, label: "Crop", shortcut: "C" },
+    { id: "lasso", icon: MousePointer, label: "Lasso", shortcut: "L" },
+  ]
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg mx-auto mb-4 animate-pulse"></div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Loading Editor</h1>
+          <p className="text-gray-600">Please wait while we prepare your workspace...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show authentication required message if not configured
+  if (!isConfigured) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg mx-auto mb-6 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Connect Supabase to get started</h1>
+          <p className="text-gray-600 mb-6">
+            Please configure your Supabase integration to enable authentication and access the editor.
+          </p>
+          <Button 
+            onClick={() => window.location.href = "/"}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            Go to Homepage
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show authentication required message if user is not logged in
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg mx-auto mb-6 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">
+            You need to be logged in to access the editor. Please sign in to continue.
+          </p>
+          <div className="space-y-3">
+            <Button 
+              onClick={() => window.location.href = "/auth/login?redirectTo=/editor"}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Sign In
+            </Button>
+            <Button 
+              onClick={() => window.location.href = "/auth/sign-up?redirectTo=/editor"}
+              variant="outline"
+              className="w-full"
+            >
+              Sign Up
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <TooltipProvider>
@@ -299,6 +548,13 @@ export default function ImageEditorPage() {
                   <div className="mt-2 flex items-center gap-2">
                     <Badge variant="secondary" className="text-xs">
                       {editorMetadata.type} • {editorMetadata.originalPrompt?.slice(0, 50)}...
+                    </Badge>
+                  </div>
+                )}
+                {user && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
+                      ✓ Signed in as {user.email}
                     </Badge>
                   </div>
                 )}

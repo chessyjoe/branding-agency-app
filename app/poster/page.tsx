@@ -87,7 +87,15 @@ export default function PosterPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<{
     imageUrl?: string
+    svgContent?: string
+    svgFallback?: boolean
     refinedPrompt?: string
+    metadata?: {
+      hasSvg?: boolean
+      svgLength?: number
+      svgFallback?: boolean
+      generatedAt?: string
+    }
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [enhancedPromptData, setEnhancedPromptData] = useState<any>(null)
@@ -233,7 +241,10 @@ export default function PosterPage() {
       if (data.success) {
         setResult({
           imageUrl: data.imageUrl,
+          svgContent: data.svgContent,
+          svgFallback: data.svgFallback,
           refinedPrompt: data.refinedPrompt,
+          metadata: data.metadata,
         })
         if (data.enhancedPromptData) {
           setEnhancedPromptData(data.enhancedPromptData)
@@ -316,6 +327,8 @@ export default function PosterPage() {
 
     const editorData = {
       imageUrl: result.imageUrl,
+      svgContent: result.svgContent,
+      svgFallback: result.svgFallback,
       originalPrompt: prompt,
       refinedPrompt: result.refinedPrompt,
       type: "poster",
@@ -323,6 +336,7 @@ export default function PosterPage() {
       brandVoice,
       advancedOptions,
       eventDetails,
+      metadata: result.metadata,
     }
 
     sessionStorage.setItem("editorImageData", JSON.stringify(editorData))

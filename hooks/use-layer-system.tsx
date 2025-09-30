@@ -52,17 +52,30 @@ export function useLayerSystem() {
 
   const createLayer = useCallback(
     (type: Layer["type"], name?: string) => {
-      if (isUnmountedRef.current) return null
+      // Remove the unmounted check for now - it's causing issues in React Strict Mode
+      // if (isUnmountedRef.current) {
+      //   console.warn("[v0] createLayer called on unmounted component")
+      //   return null
+      // }
 
       const canvas = createTrackedCanvas()
       const container = canvasContainerRef.current
+      
+      // Set default canvas size
+      canvas.width = 800
+      canvas.height = 600
+      
+      // Try to get container dimensions if available
       if (container) {
-        const rect = container.getBoundingClientRect()
-        canvas.width = rect.width || 800
-        canvas.height = rect.height || 600
-      } else {
-        canvas.width = 800
-        canvas.height = 600
+        try {
+          const rect = container.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) {
+            canvas.width = rect.width
+            canvas.height = rect.height
+          }
+        } catch (error) {
+          console.warn("[v0] Failed to get container dimensions:", error)
+        }
       }
 
       const newLayer: Layer = {
@@ -82,6 +95,13 @@ export function useLayerSystem() {
         layers: [...prev.layers, newLayer],
         activeLayerId: newLayer.id,
       }))
+
+      console.log("[v0] Created layer:", {
+        id: newLayer.id,
+        type: newLayer.type,
+        name: newLayer.name,
+        canvasSize: `${canvas.width}x${canvas.height}`
+      })
 
       return newLayer
     },
@@ -277,7 +297,10 @@ export function useLayerSystem() {
 
   useEffect(() => {
     return () => {
-      isUnmountedRef.current = true
+      // Only set unmounted flag after a delay to avoid Strict Mode issues
+      setTimeout(() => {
+        isUnmountedRef.current = true
+      }, 0)
       cleanup()
     }
   }, [cleanup])

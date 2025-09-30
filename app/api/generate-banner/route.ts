@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { integrateDualGeneration, type UniversalDualRequest } from "@/lib/dual-generation/integration-utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -147,6 +148,44 @@ export async function POST(request: NextRequest) {
         throw new Error("No valid API key found for the selected model")
       }
 
+      // Generate SVG content for the editor
+      let svgContent: string | undefined
+      let svgFallback = false
+
+      try {
+        console.log("[v0] Starting dual generation for banner SVG content...")
+        
+        const dualRequest: UniversalDualRequest = {
+          prompt: refinedPrompt,
+          type: "banner",
+          colors,
+          brandVoice,
+          advancedOptions,
+          eventDetails,
+          width: 800,
+          height: 450
+        }
+
+        const { svgContent: generatedSvg, fallback } = await integrateDualGeneration(
+          openaiApiKey || "",
+          dualRequest,
+          imageUrl
+        )
+
+        svgContent = generatedSvg
+        svgFallback = fallback || false
+
+        console.log("[v0] Banner SVG generation completed:", {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          fallback: svgFallback
+        })
+
+      } catch (svgError) {
+        console.error("[v0] Banner SVG generation failed:", svgError)
+        // Continue without SVG content
+      }
+
       // Auto-save the generated banner
       try {
         const supabase = await createClient()
@@ -163,7 +202,10 @@ export async function POST(request: NextRequest) {
             prompt,
             refinedPrompt,
             model,
-            result: { imageUrl },
+            result: { 
+              imageUrl,
+              svg: svgContent || null
+            },
             colors,
             brandVoice,
             advancedOptions,
@@ -179,9 +221,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         imageUrl,
+        svgContent,
+        svgFallback,
         refinedPrompt,
         resultType: "image",
         message: "Banner generated and auto-saved successfully",
+        metadata: {
+          hasSvg: !!svgContent,
+          svgLength: svgContent?.length || 0,
+          svgFallback,
+          generatedAt: new Date().toISOString()
+        }
       })
     } catch (error) {
       console.error("Banner generation error:", error)
