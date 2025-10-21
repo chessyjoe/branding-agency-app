@@ -122,3 +122,7 @@ async function generateDisplayContent(
   // For now, return a placeholder URL
   return `https://placeholder.com/${type}-${Date.now()}.jpg`
 }
+
+
+
+

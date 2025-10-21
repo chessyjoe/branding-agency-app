@@ -46,3 +46,7 @@ const testSVGGeneration = async () => {
 
 // Run the test
 testSVGGeneration().catch(console.error)
+
+
+
+

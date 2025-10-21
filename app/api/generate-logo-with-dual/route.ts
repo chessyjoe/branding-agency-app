@@ -151,3 +151,7 @@ async function generateLogoImage(
   // Return a placeholder URL
   return `https://placeholder.com/logo-${Date.now()}.jpg`
 }
+
+
+
+

@@ -223,3 +223,7 @@ Return only the complete SVG code starting with <svg> and ending with </svg>.`
 export function createDualGenerationService(openaiApiKey: string): DualGenerationService {
   return new DualGenerationService(openaiApiKey)
 }
+
+
+
+

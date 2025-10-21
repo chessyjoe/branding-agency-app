@@ -27,6 +27,8 @@ import {
   HelpCircle,
   Maximize2,
   Minimize2,
+  Plus,
+  X,
 } from "lucide-react"
 import { LayerPanel } from "@/components/layer-panel"
 import { LayeredCanvas } from "@/components/layered-canvas"
@@ -533,430 +535,439 @@ export default function ImageEditorPage() {
 
   return (
     <TooltipProvider>
-      <div
-        className={`min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 ${isFullscreen ? "fixed inset-0 z-50" : ""}`}
-      >
-        <div className="container mx-auto p-4">
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Image Editor</h1>
-                <p className="text-slate-600 dark:text-slate-400 mt-1">
-                  Edit, enhance, and transform your images with AI-powered tools
-                </p>
-                {editorMetadata && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {editorMetadata.type} • {editorMetadata.originalPrompt?.slice(0, 50)}...
-                    </Badge>
+      <div className={`flex flex-col h-screen bg-gray-900 text-gray-100 ${isFullscreen ? "fixed inset-0 z-50" : ""}`}>
+        {/* Top Toolbar */}
+        <header className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-950">
+          <div className="flex items-center gap-4">
+            <span className="font-bold text-lg">AI Image Editor</span>
+            {editorMetadata && (
+              <Badge variant="secondary" className="text-xs bg-gray-800 text-gray-300 border-gray-700">
+                {editorMetadata.type} • {editorMetadata.originalPrompt?.slice(0, 30)}...
+              </Badge>
+            )}
+            {user && (
+              <Badge variant="default" className="text-xs bg-green-900 text-green-300 border-green-700">
+                ✓ {user.email}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleImportClick}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border-0"
+                >
+                  <Upload className="w-4 h-4 mr-1" />
+                  Import
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Import image or project (Ctrl+O)</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleExportClick}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border-0"
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Export
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export image or project (Ctrl+S)</TooltipContent>
+            </Tooltip>
+
+            <Button variant="ghost" size="sm" onClick={handleUndo} className="p-2 hover:bg-gray-800">
+              <Undo className="w-4 h-4" />
+            </Button>
+
+            <Button variant="ghost" size="sm" onClick={handleRedo} className="p-2 hover:bg-gray-800">
+              <Redo className="w-4 h-4" />
+            </Button>
+
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowAIPanel(!showAIPanel)}
+              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white border-0"
+            >
+              <Sparkles className="w-4 h-4 mr-1" />
+              AI Tools
+            </Button>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsFullscreen(!isFullscreen)}
+                  className="p-2 hover:bg-gray-800"
+                >
+                  {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowOnboarding(true)}
+                  className="p-2 hover:bg-gray-800"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show help</TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar - Layers */}
+          <aside className="w-56 bg-gray-950 border-r border-gray-800 p-3 overflow-y-auto">
+            <h2 className="text-sm font-semibold mb-3 text-gray-200">Layers</h2>
+            <div className="space-y-2">
+              {layers.length === 0 ? (
+                <div className="text-gray-500 text-xs">No layers yet</div>
+              ) : (
+                layers.map((layer) => (
+                  <div
+                    key={layer.id}
+                    className={`p-2 rounded cursor-pointer transition-colors ${
+                      activeLayerId === layer.id 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+                    }`}
+                    onClick={() => setActiveLayer(layer.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs">{layer.name}</span>
+                      <div className="flex items-center gap-1">
+                        {layer.visible !== false && (
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-                {user && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge variant="default" className="text-xs bg-green-100 text-green-800 border-green-200">
-                      ✓ Signed in as {user.email}
-                    </Badge>
-                  </div>
-                )}
+                ))
+              )}
+            </div>
+            
+            <div className="mt-4 space-y-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => createLayer("image", "New Layer")}
+                className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Layer
+              </Button>
+            </div>
+
+            {/* Tools Panel */}
+            <div className="mt-6">
+              <h2 className="text-sm font-semibold mb-3 text-gray-200">Tools</h2>
+              <div className="grid grid-cols-2 gap-1">
+                {tools.map((tool) => (
+                  <Tooltip key={tool.id}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={selectedTool === tool.id ? "default" : "ghost"}
+                        size="sm"
+                        className={`aspect-square p-2 ${
+                          selectedTool === tool.id 
+                            ? 'bg-purple-600 hover:bg-purple-700' 
+                            : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                        }`}
+                        onClick={() => setSelectedTool(tool.id)}
+                      >
+                        {tool.icon && <tool.icon className="w-4 h-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {tool.label} ({tool.shortcut})
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
               </div>
-              <div className="flex items-center gap-2">
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="mt-6">
+              <h2 className="text-sm font-semibold mb-3 text-gray-200">Zoom</h2>
+              <div className="flex gap-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={() => setShowOnboarding(true)} aria-label="Show help">
-                      <HelpCircle className="w-4 h-4" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 p-1 bg-gray-800 hover:bg-gray-700 text-gray-300"
+                      onClick={handleZoomOut}
+                    >
+                      <ZoomOut className="w-3 h-3" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Show help</TooltipContent>
+                  <TooltipContent>Zoom out</TooltipContent>
                 </Tooltip>
+
+                <div
+                  className="flex-1 text-xs text-center py-1 cursor-pointer hover:bg-gray-800 rounded text-gray-300"
+                  onClick={handleZoomReset}
+                >
+                  {zoom[0]}%
+                </div>
 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setIsFullscreen(!isFullscreen)}
-                      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                      className="flex-1 p-1 bg-gray-800 hover:bg-gray-700 text-gray-300"
+                      onClick={handleZoomIn}
                     >
-                      {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                      <ZoomIn className="w-3 h-3" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}</TooltipContent>
+                  <TooltipContent>Zoom in</TooltipContent>
                 </Tooltip>
-
-                <Badge variant="secondary" className="px-3 py-1">
-                  Beta
-                </Badge>
               </div>
             </div>
-          </div>
+          </aside>
 
-          <div className="grid grid-cols-12 gap-4 h-[calc(100vh-200px)]">
-            <Card className="col-span-2">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Tools</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start bg-transparent"
-                        onClick={handleImportClick}
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Import
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Import image or project (Ctrl+O)</TooltipContent>
-                  </Tooltip>
+          {/* Main Canvas */}
+          <main className="flex-1 flex items-center justify-center bg-gray-900 relative">
+            <LayeredCanvas
+              image={currentImage}
+              selectedTool={selectedTool}
+              brushSize={brushSize}
+              opacity={opacity}
+              zoom={zoom[0]}
+              onLayerSystemChange={(newLayers, newActiveLayerId) => {
+                setLayers(newLayers)
+                setActiveLayerId(newActiveLayerId)
+              }}
+            />
+          </main>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start bg-transparent"
-                        onClick={handleExportClick}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Export image or project (Ctrl+S)</TooltipContent>
-                  </Tooltip>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="editor-file-input"
-                    name="editor-file-input"
-                    aria-label="Import image file"
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex gap-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={handleUndo}>
-                        <Undo className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={handleRedo}>
-                        <Redo className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent>
-                  </Tooltip>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-1">
-                  {tools.map((tool) => (
-                    <Tooltip key={tool.id}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant={selectedTool === tool.id ? "default" : "outline"}
-                          size="sm"
-                          className="aspect-square p-2"
-                          onClick={() => setSelectedTool(tool.id)}
-                        >
-                          {tool.icon && <tool.icon className="w-4 h-4" />}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {tool.label} ({tool.shortcut})
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs">Zoom</Label>
-                    <div className="flex gap-1 mt-1">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 p-1 bg-transparent"
-                            onClick={handleZoomOut}
-                          >
-                            <ZoomOut className="w-3 h-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zoom out</TooltipContent>
-                      </Tooltip>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            className="flex-1 text-xs text-center py-1 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded"
-                            onClick={handleZoomReset}
-                          >
-                            {zoom[0]}%
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>Reset zoom (100%)</TooltipContent>
-                      </Tooltip>
-
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 p-1 bg-transparent"
-                            onClick={handleZoomIn}
-                          >
-                            <ZoomIn className="w-3 h-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Zoom in</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-1">
-                  <Button
-                    variant={showDrawingTools ? "default" : "outline"}
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => setShowDrawingTools(!showDrawingTools)}
-                  >
-                    <Paintbrush className="w-4 h-4 mr-2" />
-                    Drawing Tools
-                  </Button>
-                  <Button
-                    variant={showAIPanel ? "default" : "outline"}
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => setShowAIPanel(!showAIPanel)}
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    AI Tools
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="col-span-7">
-              <Card className="h-full">
-                <CardContent className="p-0 h-full">
-                  <LayeredCanvas
-                    image={currentImage}
-                    selectedTool={selectedTool}
-                    brushSize={brushSize}
-                    opacity={opacity}
-                    zoom={zoom[0]}
-                    onLayerSystemChange={(newLayers, newActiveLayerId) => {
-                      setLayers(newLayers)
-                      setActiveLayerId(newActiveLayerId)
-                    }}
-                  />
-                </CardContent>
-              </Card>
+          {/* Right Sidebar - Tools & Panels */}
+          <aside className="w-64 bg-gray-950 border-l border-gray-800 p-3 overflow-y-auto">
+            {/* AI Tools Section */}
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold mb-3 text-gray-200">AI Tools</h2>
+              <div className="space-y-2">
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Remove Background
+                </Button>
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Upscale Image
+                </Button>
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Style Transfer
+                </Button>
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Face Retouch
+                </Button>
+              </div>
             </div>
 
-            <div className="col-span-3 space-y-4 max-h-full overflow-y-auto">
-              {showExportPanel && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium">Export</CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => setShowExportPanel(false)}>
-                        <EyeOff className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ExportPanel
-                      layers={layers}
-                      activeLayerId={activeLayerId}
-                      onExport={(options) => handleExport(layers, activeLayerId, options)}
-                      onSaveProject={saveProject}
-                    />
-                  </CardContent>
-                </Card>
-              )}
+            {/* Drawing Tools */}
+            {showDrawingTools && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold mb-3 text-gray-200">Drawing Tools</h2>
+                <DrawingTools
+                  selectedTool={selectedTool}
+                  onToolChange={setSelectedTool}
+                  brushSize={brushSize}
+                  onBrushSizeChange={setBrushSize}
+                  opacity={opacity}
+                  onOpacityChange={setOpacity}
+                  color={color}
+                  onColorChange={setColor}
+                />
+              </div>
+            )}
 
-              {showImportPanel && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium">Import</CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => setShowImportPanel(false)}>
-                        <EyeOff className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ImportPanel
-                      onImportImage={handleImportImage}
-                      onImportProject={(projectData) => {
-                        console.log("Import project:", projectData)
-                        setShowImportPanel(false)
-                      }}
-                      onImportLayers={(layers) => {
-                        console.log("Import layers:", layers)
-                        setShowImportPanel(false)
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              )}
+            {/* Selection Tools */}
+            {["select", "lasso"].includes(selectedTool) && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold mb-3 text-gray-200">Selection Tools</h2>
+                <SelectionTools selectedTool={selectedTool} onToolChange={setSelectedTool} />
+              </div>
+            )}
 
-              {showDrawingTools && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Drawing Tools</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DrawingTools
-                      selectedTool={selectedTool}
-                      onToolChange={setSelectedTool}
-                      brushSize={brushSize}
-                      onBrushSizeChange={setBrushSize}
-                      opacity={opacity}
-                      onOpacityChange={setOpacity}
-                      color={color}
-                      onColorChange={setColor}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
-              {["select", "lasso"].includes(selectedTool) && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Selection Tools</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <SelectionTools selectedTool={selectedTool} onToolChange={setSelectedTool} />
-                  </CardContent>
-                </Card>
-              )}
-
-              {showLayers && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-medium">Layers</CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => setShowLayers(false)}>
-                        <EyeOff className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <LayerPanel
-                      layers={layers}
-                      activeLayerId={activeLayerId}
-                      onCreateLayer={createLayer}
-                      onDeleteLayer={deleteLayer}
-                      onUpdateLayer={updateLayer}
-                      onSetActiveLayer={setActiveLayer}
-                      onDuplicateLayer={duplicateLayer}
-                      onMergeLayers={mergeLayers}
-                      onReorderLayers={reorderLayers}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
-              {showAIPanel && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">AI Editing</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AIEditingPanel
-                      layers={layers}
-                      activeLayerId={activeLayerId}
-                      onLayerUpdate={handleLayerUpdate}
-                      onCreateLayer={handleCreateLayerFromAI}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Rotate Left
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                    <Crop className="w-4 h-4 mr-2" />
-                    Auto Crop
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Remove Background
-                  </Button>
-                </CardContent>
-              </Card>
+            {/* AI Prompt Section */}
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold mb-3 text-gray-200">AI Prompt</h2>
+              <textarea 
+                placeholder="Describe your edit..." 
+                className="w-full p-2 bg-gray-800 rounded text-sm mb-2 text-gray-200 placeholder-gray-400 border-gray-700"
+                rows={3}
+              />
+              <Button className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white">
+                Apply AI Edit
+              </Button>
             </div>
-          </div>
+
+            {/* Quick Actions */}
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold mb-3 text-gray-200">Quick Actions</h2>
+              <div className="space-y-2">
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Rotate Left
+                </Button>
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Crop className="w-4 h-4 mr-2" />
+                  Auto Crop
+                </Button>
+                <Button className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 justify-start">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Remove Background
+                </Button>
+              </div>
+            </div>
+
+            {/* Conditional Panels */}
+            {showExportPanel && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-200">Export</h2>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowExportPanel(false)}
+                    className="p-1 hover:bg-gray-800 text-gray-400"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <ExportPanel
+                  layers={layers}
+                  activeLayerId={activeLayerId}
+                  onExport={(options) => handleExport(layers, activeLayerId, options)}
+                  onSaveProject={saveProject}
+                />
+              </div>
+            )}
+
+            {showImportPanel && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-200">Import</h2>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowImportPanel(false)}
+                    className="p-1 hover:bg-gray-800 text-gray-400"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <ImportPanel
+                  onImportImage={handleImportImage}
+                  onImportProject={(projectData) => {
+                    console.log("Import project:", projectData)
+                    setShowImportPanel(false)
+                  }}
+                  onImportLayers={(layers) => {
+                    console.log("Import layers:", layers)
+                    setShowImportPanel(false)
+                  }}
+                />
+              </div>
+            )}
+
+            {showAIPanel && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold mb-3 text-gray-200">AI Editing</h2>
+                <AIEditingPanel
+                  layers={layers}
+                  activeLayerId={activeLayerId}
+                  onLayerUpdate={handleLayerUpdate}
+                  onCreateLayer={handleCreateLayerFromAI}
+                />
+              </div>
+            )}
+          </aside>
         </div>
 
-        {showOnboarding && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <Card className="max-w-md">
-              <CardHeader>
-                <CardTitle>Welcome to Image Editor!</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-slate-600 dark:text-slate-400 space-y-2">
-                  <p>Get started with these keyboard shortcuts:</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">V</kbd> Select
-                    </div>
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">M</kbd> Move
-                    </div>
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">B</kbd> Brush
-                    </div>
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">E</kbd> Eraser
-                    </div>
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">Ctrl+Z</kbd> Undo
-                    </div>
-                    <div>
-                      <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">Ctrl+S</kbd> Export
-                    </div>
-                  </div>
-                </div>
-                <Button onClick={() => setShowOnboarding(false)} className="w-full">
-                  Got it!
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Bottom History Bar */}
+        <footer className="flex items-center gap-2 px-4 py-2 border-t border-gray-800 bg-gray-950 overflow-x-auto">
+          <div className="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">Original</div>
+          <div className="px-2 py-1 bg-purple-600 rounded text-xs text-white">AI Edit 1</div>
+          <div className="px-2 py-1 bg-gray-800 rounded text-xs text-gray-300">AI Edit 2</div>
+        </footer>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+          id="editor-file-input"
+          name="editor-file-input"
+          aria-label="Import image file"
+        />
       </div>
+
+      {showOnboarding && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="max-w-md bg-gray-900 border border-gray-700 rounded-lg p-6">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-100 mb-2">Welcome to AI Image Editor!</h2>
+              <p className="text-sm text-gray-400">Get started with these keyboard shortcuts:</p>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">V</kbd>
+                  <span className="text-gray-300">Select</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">M</kbd>
+                  <span className="text-gray-300">Move</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">B</kbd>
+                  <span className="text-gray-300">Brush</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">E</kbd>
+                  <span className="text-gray-300">Eraser</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">Ctrl+Z</kbd>
+                  <span className="text-gray-300">Undo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-2 py-1 bg-gray-800 text-gray-300 rounded text-xs">Ctrl+S</kbd>
+                  <span className="text-gray-300">Export</span>
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setShowOnboarding(false)} 
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              Got it!
+            </Button>
+          </div>
+        </div>
+      )}
     </TooltipProvider>
   )
 }
